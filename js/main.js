@@ -1,5 +1,5 @@
 // ---- Parse + global data ----
-const parseMDY  = d3.timeParse('%d/%m/%Y');
+const parseDate  = d3.timeParse('%d/%m/%Y');
 let data = [];
 
 // =============== STATE & DOM ===============
@@ -195,7 +195,8 @@ function renderBars() {
 
   xAxisB.call(d3.axisBottom(xB)).selectAll('text').attr('fill','var(--muted)');
   yAxisB.call(d3.axisLeft(yB).ticks(5)).selectAll('text').attr('fill','var(--muted)');
-  xAxisB.selectAll('path,line'), yAxisB.selectAll('path,line').attr('stroke','var(--grid)');
+  xAxisB.selectAll('path,line').attr('stroke','var(--grid)');
+  yAxisB.selectAll('path,line').attr('stroke','var(--grid)');
 
   const groups = gB.selectAll('.bargrp').data(roll, d => d.opponent).join(
     enter => enter.append('g').attr('class','bargrp').attr('transform', d => `translate(${xB(d.opponent)},0)`),
