@@ -246,37 +246,117 @@ function renderAll() {
 
 // ---- Data loader (use your CSV from /data) ----
 // If you used my cleaned file name, this will Just Work™
-d3.csv('data/lakers_2024-2025_regular_season.csv', d => {
-  const fg  = +d.FG;
-  const fga = +d.FGA;
-  const makes = fg;
-  const attempts = fga;
-  const misses = Math.max(0, attempts - makes);
-  const fg_pct = attempts ? makes / attempts : 0;
+// ---------- flexible date parsers ----------
+const parseDMY  = d3.timeParse('%d/%m/%Y');   // e.g., 22/10/2024
+const parseMDY  = d3.timeParse('%m/%d/%Y');   // e.g., 10/22/2024 (fallback)
+const parseYMD  = d3.timeParse('%Y-%m-%d');   // e.g., 2024-10-22
 
-  // Home/Away detection from common headers
-  const ha = String(d.Type || d['Home/Away'] || '').trim();
-  const site = ha === '@' ? 'away' : 'home';
+function parseDateFlex(s) {
+  if (!s) return null;
+  s = String(s).trim();
+  for (const p of [parseDMY, parseMDY, parseYMD]) {
+    const dt = p(s);
+    if (dt) return dt;
+  }
+  const dt = new Date(s);
+  return isNaN(dt) ? null : dt;
+}
 
-  // Date: adjust if your CSV isn't YYYY-MM-DD
-  const dateStr = d.Date || d.date;
+// ---------- header helpers ----------
+function pickFirst(d, keys) {
+  for (const k of keys) if (k in d && String(d[k]).trim() !== '') return d[k];
+}
+function pickNum(d, keys) {
+  for (const k of keys) {
+    if (!(k in d)) continue;
+    const n = +d[k];
+    if (Number.isFinite(n)) return n;
+  }
+  return 0;
+}
+function pickStr(d, keys) {
+  for (const k of keys) {
+    if (!(k in d)) continue;
+    const v = String(d[k]).trim();
+    if (v) return v;
+  }
+}
+
+// ---------- mapping (adjust here if your headers use other names) ----------
+const C = {
+  date:   ['Date','date','GameDate'],
+  site:   ['Type','Home/Away','@','Loc','Location','Matchup'],
+  opp:    ['Opponent','Opp','VS','vs','OppTeam','Opp_Code','Matchup'],
+  fg:     ['FG','Team_FG'],
+  fga:    ['FGA','Team_FGA'],
+  wl:     ['WL','W/L','Rslt','result'],
+  tmPts:  ['PTS','Tm','Score'],
+  oppPts: ['OppPTS','Opp_PTS','OppScore'] // after your rename; fallback below handles numeric Opp if needed
+};
+
+// ---------- site/opponent resolvers ----------
+function siteFrom(d) {
+  const raw = (pickFirst(d, C.site) || '').toString().toLowerCase();
+  if (raw === '@' || raw.includes('@') || raw === 'a' || raw.includes('away')) return 'away';
+  if (raw === 'h' || raw.includes('home')) return 'home';
+  // Matchup like "LAL @ DEN" / "LAL vs DEN"
+  if (raw.includes(' @ ')) return 'away';
+  if (raw.includes(' vs ')) return 'home';
+  return 'home';
+}
+function opponentFrom(d) {
+  const s = pickStr(d, C.opp);
+  if (s && /[A-Za-z]/.test(s)) return s;
+  const m = pickFirst(d, ['Matchup','matchup']);
+  if (m) {
+    const parts = String(m).split(/@|vs\.?|VS\.?/i).map(t => t.trim()).filter(Boolean);
+    if (parts.length >= 2) return parts[parts.length - 1].split(/\s+/).pop();
+  }
+  return 'UNK';
+}
+
+// ---------- robust CSV loader ----------
+d3.csv('./data/lakers_2024-2025_regular_season.csv', d => {
+  // date
+  const dt = parseDateFlex(pickFirst(d, C.date));
+  if (!dt) return null; // skip rows with unparseable dates
+
+  // team shooting
+  const makes    = pickNum(d, C.fg);
+  const attempts = pickNum(d, C.fga);
+  const misses   = Math.max(0, attempts - makes);
+  const fg       = attempts > 0 ? makes / attempts : 0;
+
+  // score
+  const tm  = pickNum(d, C.tmPts);
+  let opp   = pickNum(d, C.oppPts);
+  if (!opp) {
+    // fallback: sometimes the unrenamed numeric Opp remains
+    const maybeNumOpp = +d.Opp;
+    if (Number.isFinite(maybeNumOpp)) opp = maybeNumOpp;
+  }
+
+  // notes (W/L + score)
+  const wlRaw = (pickFirst(d, C.wl) || '').toString().trim().toUpperCase();
+  const wl    = wlRaw ? wlRaw[0] : (tm && opp ? (tm > opp ? 'W' : 'L') : '');
+  const notes = `${wl}${(tm && opp) ? ` ${tm}-${opp}` : ''}`.trim();
+
   return {
-    date: parseDate(dateStr),
-    opponent: d.Opponent || d.Opp || d.opponent || d.VS || d.vs,
-    type: site,
+    date: dt,
+    opponent: opponentFrom(d),
+    type: siteFrom(d),     // 'home' | 'away'
     makes,
     misses,
     attempts,
-    fg: fg_pct,
+    fg,                    // 0–1
     minutes: 48,
-    // optional W/L + score if present
-    notes: (
-      String(d.WL || d['W/L'] || '').trim() +
-      ((d.PTS && (d.OppPTS || d.Opp_PTS)) ? ` ${d.PTS}-${(d.OppPTS || d.Opp_PTS)}` : '')
-    ).trim()
+    notes
   };
-}).then(rows => { data = rows; console.log('Loaded rows:', rows.length);
-console.table(rows.slice(0,5));
-populateOpponents(); renderAll(); 
-console.log(data)
-});
+}).then(rows => {
+  data = rows.filter(r => r && r.date && Number.isFinite(r.fg));
+  console.log('Loaded rows:', data.length);
+  console.table(data.slice(0, 5));
+  populateOpponents();
+  renderAll();
+}).catch(err => console.error('CSV load error:', err));
+
