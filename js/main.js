@@ -309,6 +309,7 @@ d3.text('./data/lakers_2024-2025_regular_season.csv').then(text => {
   console.table(data.slice(0,5));
   populateOpponents();
   renderAll();
+  console.log(data);
 }).catch(err => console.error('CSV text load error:', err));
 
 
