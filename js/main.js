@@ -245,7 +245,7 @@ function renderAll() {
 
 // ---- Data loader (use your CSV from /data) ----
 // If you used my cleaned file name, this will Just Work™
-d3.csv('data/lakers_2024_25_for_d3.csv', d => ({
+d3.csv('data/lakers_2024-2025_regular_season.csv', d => ({
   date: parseDate(d.date),
   opponent: d.opponent,
   type: (d.type || 'home').toLowerCase(),   // 'home' or 'away'
