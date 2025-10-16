@@ -1,50 +1,53 @@
-const csvText = `date,opponent,type,makes,misses,attempts,fg_pct,minutes,notes\n
-2025-09-12,Wolves,single,7,8,15,0.4667,22.4,Fast start\n
-2025-09-19,Hawks,team,5,10,15,0.3333,18.2,Cold shooting\n
-2025-09-27,Wolves,single,9,7,16,0.5625,24.0,Good spacing\n
-2025-10-03,Lions,team,11,9,20,0.55,25.0,Transition buckets\n
-2025-10-08,Titans,team,6,12,18,0.3333,21.3,\n
-2025-10-12,Hawks,single,10,6,16,0.625,23.1,Clutch threes\n`;
+// ---- Data loader (Lakers 2024–25) ----
+const parseDate = d3.timeParse('%Y-%m-%d');
+let data = [];
 
-    const parseDate = d3.timeParse('%Y-%m-%d');
-    let data = d3.csvParse(csvText.trim(), d => {
-      const attempts = +d.attempts || (+d.makes + +d.misses);
-      const fg = +d.fg_pct || (attempts ? (+d.makes / attempts) : 0);
-      return {
-        date: parseDate(d.date),
-        opponent: d.opponent,
-        type: (d.type || 'single').toLowerCase(),
-        makes: +d.makes,
-        misses: +d.misses,
-        attempts,
-        fg,
-        minutes: +d.minutes || 0,
-        notes: d.notes || ''
-      };
-    });
+d3.csv('data/lakers_2024_25_for_d3.csv', d => ({
+  date: parseDate(d.date),
+  opponent: d.opponent,
+  type: (d.type || 'home').toLowerCase(),   // 'home' or 'away'
+  makes: +d.makes,
+  misses: +d.misses,
+  attempts: +d.attempts,
+  fg: +d.fg_pct,                             // 0–1
+  minutes: +d.minutes || 48,
+  notes: d.notes || ''
+}))
+.then(rows => {
+  data = rows;
+  populateOpponents();   // <-- new helper below
+  renderAll();
+});
 
-    // =============== STATE & DOM ===============
-    const state = {
-      type: 'all',
-      opponent: 'all',
-      range: null,
-      smooth: false
-    };
+// =============== STATE & DOM ===============
+const state = {
+    type: 'all',
+    opponent: 'all',
+    range: null,
+    smooth: false
+};
 
-    const $type = document.querySelector('#typeSel');
-    const $opp = document.querySelector('#opponentSel');
-    const $smooth = document.querySelector('#smoothChk');
+const $type = document.querySelector('#typeSel');
+const $opp = document.querySelector('#opponentSel');
+const $smooth = document.querySelector('#smoothChk');
 
-    $type.addEventListener('change', () => { state.type = $type.value; renderAll(); });
-    $opp.addEventListener('change', () => { state.opponent = $opp.value; renderAll(); });
-    $smooth.addEventListener('change', () => { state.smooth = $smooth.checked; renderTimeline(); });
+$type.addEventListener('change', () => { state.type = $type.value; renderAll(); });
+$opp.addEventListener('change', () => { state.opponent = $opp.value; renderAll(); });
+$smooth.addEventListener('change', () => { state.smooth = $smooth.checked; renderTimeline(); });
 
     // Populate opponent list
+function populateOpponents() {
+    const sel = document.querySelector('#opponentSel');
+    const keep = sel.value || 'all';
+    sel.innerHTML = '<option value="all">All</option>';
     const opps = Array.from(new Set(data.map(d => d.opponent))).sort();
-    opps.forEach(o => {
-      const opt = document.createElement('option');
-      opt.value = o; opt.textContent = o; $opp.appendChild(opt);
-    });
+    for (const o of opps) {
+        const opt = document.createElement('option');
+        opt.value = o; opt.textContent = o;
+        sel.appendChild(opt);
+    }
+    if ([...sel.options].some(opt => opt.value === keep)) sel.value = keep;
+}
 
     // =============== FILTERS ===============
     function filtered() {
