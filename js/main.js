@@ -1,5 +1,5 @@
 // ---- Parse + global data ----
-const parseDate = d3.timeParse('%Y-%m-%d');
+const parseMDY  = d3.timeParse('%d/%m/%Y');
 let data = [];
 
 // =============== STATE & DOM ===============
