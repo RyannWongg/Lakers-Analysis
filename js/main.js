@@ -246,117 +246,69 @@ function renderAll() {
 
 // ---- Data loader (use your CSV from /data) ----
 // If you used my cleaned file name, this will Just Work™
-// ---------- flexible date parsers ----------
-const parseDMY  = d3.timeParse('%d/%m/%Y');   // e.g., 22/10/2024
-const parseMDY  = d3.timeParse('%m/%d/%Y');   // e.g., 10/22/2024 (fallback)
-const parseYMD  = d3.timeParse('%Y-%m-%d');   // e.g., 2024-10-22
+// ---- Loader that handles the duplicate "Opp" headers by index ----
+d3.text('./data/lakers_2024-2025_regular_season.csv').then(text => {
+  const rows = d3.csvParseRows(text);
+  const H = rows[0].map(h => h.trim());
+  const R = rows.slice(1);
 
-function parseDateFlex(s) {
-  if (!s) return null;
-  s = String(s).trim();
-  for (const p of [parseDMY, parseMDY, parseYMD]) {
-    const dt = p(s);
-    if (dt) return dt;
-  }
-  const dt = new Date(s);
-  return isNaN(dt) ? null : dt;
-}
+  // find column indices (unique ones are straightforward)
+  const iDate = H.indexOf('Date');           // e.g., 22/10/2024  (dd/mm/yyyy)
+  const iType = H.indexOf('Type');           // '' for home, '@' for away
+  const iRslt = H.indexOf('Rslt');           // W/L
+  const iTm   = H.indexOf('Tm');             // Lakers points
+  const iFG   = H.indexOf('FG');             // team FG
+  const iFGA  = H.indexOf('FGA');            // team FGA
 
-// ---------- header helpers ----------
-function pickFirst(d, keys) {
-  for (const k of keys) if (k in d && String(d[k]).trim() !== '') return d[k];
-}
-function pickNum(d, keys) {
-  for (const k of keys) {
-    if (!(k in d)) continue;
-    const n = +d[k];
-    if (Number.isFinite(n)) return n;
-  }
-  return 0;
-}
-function pickStr(d, keys) {
-  for (const k of keys) {
-    if (!(k in d)) continue;
-    const v = String(d[k]).trim();
-    if (v) return v;
-  }
-}
+  // handle the two "Opp" columns by position
+  const oppIdxs = H.reduce((a,h,i) => (h === 'Opp' ? (a.push(i), a) : a), []);
+  // opponent code is between Type and Rslt; opponent points is after Tm
+  const iOppCode = oppIdxs.find(i => i > iType && i < iRslt);
+  const iOppPts  = oppIdxs.find(i => i > iTm);
 
-// ---------- mapping (adjust here if your headers use other names) ----------
-const C = {
-  date:   ['Date','date','GameDate'],
-  site:   ['Type','Home/Away','@','Loc','Location','Matchup'],
-  opp:    ['Opponent','Opp','VS','vs','OppTeam','Opp_Code','Matchup'],
-  fg:     ['FG','Team_FG'],
-  fga:    ['FGA','Team_FGA'],
-  wl:     ['WL','W/L','Rslt','result'],
-  tmPts:  ['PTS','Tm','Score'],
-  oppPts: ['OppPTS','Opp_PTS','OppScore'] // after your rename; fallback below handles numeric Opp if needed
-};
-
-// ---------- site/opponent resolvers ----------
-function siteFrom(d) {
-  const raw = (pickFirst(d, C.site) || '').toString().toLowerCase();
-  if (raw === '@' || raw.includes('@') || raw === 'a' || raw.includes('away')) return 'away';
-  if (raw === 'h' || raw.includes('home')) return 'home';
-  // Matchup like "LAL @ DEN" / "LAL vs DEN"
-  if (raw.includes(' @ ')) return 'away';
-  if (raw.includes(' vs ')) return 'home';
-  return 'home';
-}
-function opponentFrom(d) {
-  const s = pickStr(d, C.opp);
-  if (s && /[A-Za-z]/.test(s)) return s;
-  const m = pickFirst(d, ['Matchup','matchup']);
-  if (m) {
-    const parts = String(m).split(/@|vs\.?|VS\.?/i).map(t => t.trim()).filter(Boolean);
-    if (parts.length >= 2) return parts[parts.length - 1].split(/\s+/).pop();
-  }
-  return 'UNK';
-}
-
-// ---------- robust CSV loader ----------
-d3.csv('./data/lakers_2024-2025_regular_season.csv', d => {
-  // date
-  const dt = parseDateFlex(pickFirst(d, C.date));
-  if (!dt) return null; // skip rows with unparseable dates
-
-  // team shooting
-  const makes    = pickNum(d, C.fg);
-  const attempts = pickNum(d, C.fga);
-  const misses   = Math.max(0, attempts - makes);
-  const fg       = attempts > 0 ? makes / attempts : 0;
-
-  // score
-  const tm  = pickNum(d, C.tmPts);
-  let opp   = pickNum(d, C.oppPts);
-  if (!opp) {
-    // fallback: sometimes the unrenamed numeric Opp remains
-    const maybeNumOpp = +d.Opp;
-    if (Number.isFinite(maybeNumOpp)) opp = maybeNumOpp;
+  if ([iDate,iType,iRslt,iTm,iFG,iFGA,iOppCode,iOppPts].some(i => i < 0)) {
+    console.warn('Header detection failed. Headers were:', H);
   }
 
-  // notes (W/L + score)
-  const wlRaw = (pickFirst(d, C.wl) || '').toString().trim().toUpperCase();
-  const wl    = wlRaw ? wlRaw[0] : (tm && opp ? (tm > opp ? 'W' : 'L') : '');
-  const notes = `${wl}${(tm && opp) ? ` ${tm}-${opp}` : ''}`.trim();
+  const out = [];
+  for (const row of R) {
+    const dateStr = (row[iDate] || '').trim();
+    if (!dateStr) continue;
 
-  return {
-    date: dt,
-    opponent: opponentFrom(d),
-    type: siteFrom(d),     // 'home' | 'away'
-    makes,
-    misses,
-    attempts,
-    fg,                    // 0–1
-    minutes: 48,
-    notes
-  };
-}).then(rows => {
-  data = rows.filter(r => r && r.date && Number.isFinite(r.fg));
+    const dt = parseDate(dateStr);                 // you already set: d3.timeParse('%d/%m/%Y')
+    if (!dt || isNaN(+dt)) continue;
+
+    const makes    = +row[iFG]  || 0;
+    const attempts = +row[iFGA] || 0;
+    const misses   = Math.max(0, attempts - makes);
+    const fg       = attempts ? makes / attempts : 0;
+
+    const tmPts   = +row[iTm]     || 0;
+    const oppPts  = +row[iOppPts] || 0;
+    const wlRaw   = (row[iRslt] || '').toString().trim().toUpperCase();
+    const wl      = wlRaw ? wlRaw[0] : (tmPts && oppPts ? (tmPts > oppPts ? 'W' : 'L') : '');
+
+    const siteRaw = (row[iType] || '').toString().trim();
+    const site    = siteRaw === '@' ? 'away' : 'home';
+
+    out.push({
+      date: dt,
+      opponent: (row[iOppCode] || 'UNK').toString().trim(), // e.g., MIN/PHO/SAC
+      type: site,                  // 'home' | 'away'
+      makes,
+      misses,
+      attempts,
+      fg,                          // 0–1
+      minutes: 48,
+      notes: `${wl}${tmPts && oppPts ? ` ${tmPts}-${oppPts}` : ''}`.trim()
+    });
+  }
+
+  data = out;
   console.log('Loaded rows:', data.length);
-  console.table(data.slice(0, 5));
+  console.table(data.slice(0,5));
   populateOpponents();
   renderAll();
-}).catch(err => console.error('CSV load error:', err));
+}).catch(err => console.error('CSV text load error:', err));
+
 
