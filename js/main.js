@@ -247,8 +247,8 @@ function renderAll() {
 // ---- Data loader (use your CSV from /data) ----
 // If you used my cleaned file name, this will Just Work™
 d3.csv('data/lakers_2024-2025_regular_season.csv', d => {
-  const fg  = +d.fg || +d.FGM || 0;
-  const fga = +d.fga || +d.FGA || 0;
+  const fg  = +d.FG || +d.FGM || 0;
+  const fga = +d.FGA || +d.FGA || 0;
   const makes = fg;
   const attempts = fga;
   const misses = Math.max(0, attempts - makes);
