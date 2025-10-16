@@ -277,4 +277,6 @@ d3.csv('data/lakers_2024-2025_regular_season.csv', d => {
   };
 }).then(rows => { data = rows; console.log('Loaded rows:', rows.length);
 console.table(rows.slice(0,5));
-populateOpponents(); renderAll(); });
+populateOpponents(); renderAll(); 
+console.log(data)
+});
