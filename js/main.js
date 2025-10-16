@@ -247,16 +247,16 @@ function renderAll() {
 // ---- Data loader (use your CSV from /data) ----
 // If you used my cleaned file name, this will Just Work™
 d3.csv('data/lakers_2024-2025_regular_season.csv', d => {
-  const fg  = +d.FG || +d.FGM || 0;
-  const fga = +d.FGA || +d.FGA || 0;
+  const fg  = +d.FG;
+  const fga = +d.FGA;
   const makes = fg;
   const attempts = fga;
   const misses = Math.max(0, attempts - makes);
   const fg_pct = attempts ? makes / attempts : 0;
 
   // Home/Away detection from common headers
-  const ha = (d.type || d.homeAway || d['Home/Away'] || d.location || d.loc || d['@'] || '').toString().toLowerCase();
-  const site = (ha === '@' || ha === 'a' || ha.includes('away')) ? 'away' : 'home';
+  const ha = (d.Type).toString().toLowerCase();
+  const site = (ha === '@') ? 'away' : 'home';
 
   // Date: adjust if your CSV isn't YYYY-MM-DD
   const dateStr = d.date || d.Date;
