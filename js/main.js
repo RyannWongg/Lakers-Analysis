@@ -255,14 +255,14 @@ d3.csv('data/lakers_2024-2025_regular_season.csv', d => {
   const fg_pct = attempts ? makes / attempts : 0;
 
   // Home/Away detection from common headers
-  const ha = (d.Type).toString().toLowerCase();
-  const site = (ha === '@') ? 'away' : 'home';
+  const ha = String(d.Type || d['Home/Away'] || '').trim();
+  const site = ha === '@' ? 'away' : 'home';
 
   // Date: adjust if your CSV isn't YYYY-MM-DD
-  const dateStr = d.date || d.Date;
+  const dateStr = d.Date || d.date;
   return {
     date: parseDate(dateStr),
-    opponent: d.opponent || d.Opponent || d.opp || d.VS,
+    opponent: d.Opponent || d.Opp || d.opponent || d.VS || d.vs,
     type: site,
     makes,
     misses,
@@ -270,6 +270,11 @@ d3.csv('data/lakers_2024-2025_regular_season.csv', d => {
     fg: fg_pct,
     minutes: 48,
     // optional W/L + score if present
-    notes: ((d.result || d.WL || '').trim() + ((d.pts && d.opp_pts) ? ` ${d.pts}-${d.opp_pts}` : '')).trim()
+    notes: (
+      String(d.WL || d['W/L'] || '').trim() +
+      ((d.PTS && (d.OppPTS || d.Opp_PTS)) ? ` ${d.PTS}-${(d.OppPTS || d.Opp_PTS)}` : '')
+    ).trim()
   };
-}).then(rows => { data = rows; populateOpponents(); renderAll(); });
+}).then(rows => { data = rows; console.log('Loaded rows:', rows.length);
+console.table(rows.slice(0,5));
+populateOpponents(); renderAll(); });
