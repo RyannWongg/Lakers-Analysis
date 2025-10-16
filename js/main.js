@@ -245,18 +245,30 @@ function renderAll() {
 
 // ---- Data loader (use your CSV from /data) ----
 // If you used my cleaned file name, this will Just Work™
-d3.csv('data/lakers_2024-2025_regular_season.csv', d => ({
-  date: parseDate(d.date),
-  opponent: d.opponent,
-  type: (d.type || 'home').toLowerCase(),   // 'home' or 'away'
-  makes: +d.makes,
-  misses: +d.misses,
-  attempts: +d.attempts,
-  fg: +d.fg_pct,                             // 0–1
-  minutes: +d.minutes || 48,
-  notes: d.notes || ''
-})).then(rows => {
-  data = rows;
-  populateOpponents();
-  renderAll();
-});
+d3.csv('data/lakers_2024-2025_regular_season.csv', d => {
+  const fg  = +d.fg || +d.FGM || 0;
+  const fga = +d.fga || +d.FGA || 0;
+  const makes = fg;
+  const attempts = fga;
+  const misses = Math.max(0, attempts - makes);
+  const fg_pct = attempts ? makes / attempts : 0;
+
+  // Home/Away detection from common headers
+  const ha = (d.type || d.homeAway || d['Home/Away'] || d.location || d.loc || d['@'] || '').toString().toLowerCase();
+  const site = (ha === '@' || ha === 'a' || ha.includes('away')) ? 'away' : 'home';
+
+  // Date: adjust if your CSV isn't YYYY-MM-DD
+  const dateStr = d.date || d.Date;
+  return {
+    date: parseDate(dateStr),
+    opponent: d.opponent || d.Opponent || d.opp || d.VS,
+    type: site,
+    makes,
+    misses,
+    attempts,
+    fg: fg_pct,
+    minutes: 48,
+    // optional W/L + score if present
+    notes: ((d.result || d.WL || '').trim() + ((d.pts && d.opp_pts) ? ` ${d.pts}-${d.opp_pts}` : '')).trim()
+  };
+}).then(rows => { data = rows; populateOpponents(); renderAll(); });
