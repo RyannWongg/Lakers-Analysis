@@ -190,7 +190,8 @@ function renderBars() {
       f,
       v => {
         const makes    = d3.sum(v, d => d.makes || 0);
-        const total = d3.sum(v, d => d.attempts || (d.makes + (d.misses || 0)) || 0);
+        const attempts = d3.sum(v, d => d.attempts || (d.makes + (d.misses || 0)) || 0);
+        const total    = attempts;
         const misses   = Math.max(0, total - makes);
         return { makes, misses, total };
       },
