@@ -174,11 +174,16 @@ function renderDonut() {
 
 // =============== STACKED BARS (per opponent) ===============
 const svgB = d3.select('#bars');
-const gB = svgB.append('g').attr('transform', `translate(${m.left},${m.top})`);
-const xB = d3.scaleBand().range([0, W]).padding(0.2);
-const yB = d3.scaleLinear().range([H, 0]);
+// bars-specific margins & inner size (viewBox of #bars is 900 x 220)
+const mB = { top: 20, right: 16, bottom: 46, left: 46 };
+const WB = 900 - mB.left - mB.right;   // width inside margins
+const HB = 220 - mB.top - mB.bottom;   // height inside margins
 
-const xAxisB = gB.append('g').attr('transform', `translate(0,${H})`);
+const gB = svgB.append('g').attr('transform', `translate(${mB.left},${mB.top})`);
+const xB = d3.scaleBand().range([0, WB]).padding(0.2);
+const yB = d3.scaleLinear().range([HB, 0]);
+
+const xAxisB = gB.append('g').attr('transform', `translate(0,${HB})`);
 const yAxisB = gB.append('g');
 
 function renderBars() {
@@ -203,7 +208,7 @@ function renderBars() {
   yB.domain([0, d3.max(roll, d => d.total) || 10]).nice();
 
   xAxisB.call(d3.axisBottom(xB)).selectAll('text').attr('fill','var(--muted)');
-  yAxisB.call(d3.axisLeft(yB).ticks(6)).selectAll('text').attr('fill','var(--muted)');
+  yAxisB.call(d3.axisLeft(yB).ticks(5)).selectAll('text').attr('fill','var(--muted)');
   xAxisB.selectAll('path,line').attr('stroke','var(--grid)');
   yAxisB.selectAll('path,line').attr('stroke','var(--grid)');
 
