@@ -220,7 +220,7 @@ function renderBars() {
     .attr('width', xB.bandwidth())
     .attr('y', d => yB(d.makes))
     .attr('height', d => yB(0) - yB(d.makes))
-    .attr('fill', 'var(--good)');
+    .attr('fill', 'rgba(34,197,94,0.9)');
   
   // groups.selectAll('rect.make').data(d => [d]).join('rect')
   //   .attr('class','make')
