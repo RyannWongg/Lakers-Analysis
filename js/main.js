@@ -240,9 +240,6 @@ function renderBars() {
 }
 
 
-}
-
-
 function renderSummary() {
   const f = filtered();
   const makes = d3.sum(f, d => d.makes);
