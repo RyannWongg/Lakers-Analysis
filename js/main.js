@@ -203,7 +203,7 @@ function renderBars() {
   yB.domain([0, d3.max(roll, d => d.total) || 10]).nice();
 
   xAxisB.call(d3.axisBottom(xB)).selectAll('text').attr('fill','var(--muted)');
-  yAxisB.call(d3.axisLeft(yB).ticks(5)).selectAll('text').attr('fill','var(--muted)');
+  yAxisB.call(d3.axisLeft(yB).ticks(6)).selectAll('text').attr('fill','var(--muted)');
   xAxisB.selectAll('path,line').attr('stroke','var(--grid)');
   yAxisB.selectAll('path,line').attr('stroke','var(--grid)');
 
