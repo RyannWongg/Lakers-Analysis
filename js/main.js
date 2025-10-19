@@ -211,7 +211,7 @@ function renderBars() {
     .attr('width', xB.bandwidth())
     .attr('y', d => yB(d.total))
     .attr('height', d => yB(0) - yB(d.total))
-    .attr('fill', 'rgba(200,197,94,0.9)');
+    .attr('fill', 'rgba(34,197,94,0.9)');
 
   // --- Draw MAKES in green on top (shorter bar) ---
   groups.selectAll('rect.makes').data(d => [d]).join('rect')
