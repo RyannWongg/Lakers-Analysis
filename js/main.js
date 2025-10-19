@@ -203,25 +203,41 @@ function renderBars() {
     update => update.attr('transform', d => `translate(${xB(d.opponent)},0)`)
   );
 
-  groups.selectAll('rect.make').data(d => [d]).join('rect')
-    .attr('class','make')
+
+    // --- Draw TOTAL attempts in red as the base ---
+  groups.selectAll('rect.total').data(d => [d]).join('rect')
+    .attr('class','total')
+    .attr('x', 0)
+    .attr('width', xB.bandwidth())
+    .attr('y', d => yB(d.total))
+    .attr('height', d => yB(0) - yB(d.total))
+    .attr('fill', 'var(--bad)');
+
+  // --- Draw MAKES in green on top (shorter bar) ---
+  groups.selectAll('rect.makes').data(d => [d]).join('rect')
+    .attr('class','makes')
     .attr('x', 0)
     .attr('width', xB.bandwidth())
     .attr('y', d => yB(d.makes))
-    .attr('height', d => H - yB(d.makes))
+    .attr('height', d => yB(0) - yB(d.makes))
     .attr('fill', 'var(--good)');
+  
+  // groups.selectAll('rect.make').data(d => [d]).join('rect')
+  //   .attr('class','make')
+  //   .attr('x', 0)
+  //   .attr('width', xB.bandwidth())
+  //   .attr('y', d => yB(d.makes))
+  //   .attr('height', d => H - yB(d.makes))
+  //   .attr('fill', 'var(--good)');
 
-  groups.selectAll('rect.miss').data(d => [d]).join('rect')
-    .attr('class','miss')
-    .attr('x', 0)
-    .attr('width', xB.bandwidth())
-    .attr('y', d => yB(d.makes + d.misses))
-    .attr('height', d => yB(d.makes) - yB(d.makes + d.misses))
-    .attr('fill', 'rgba(239,68,68,0.6)');
+  // groups.selectAll('rect.miss').data(d => [d]).join('rect')
+  //   .attr('class','miss')
+  //   .attr('x', 0)
+  //   .attr('width', xB.bandwidth())
+  //   .attr('y', d => yB(d.makes + d.misses))
+  //   .attr('height', d => yB(d.makes) - yB(d.makes + d.misses))
+  //   .attr('fill', 'var(--bad)');
 
-  console.table(roll.map(d => ({
-  opp: d.opponent, makes: d.makes, misses: d.misses, total: d.makes + d.misses
-})).slice(0,8));
 }
 
 function renderSummary() {
