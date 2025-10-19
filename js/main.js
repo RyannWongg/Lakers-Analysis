@@ -217,7 +217,11 @@ function renderBars() {
     .attr('width', xB.bandwidth())
     .attr('y', d => yB(d.makes + d.misses))
     .attr('height', d => yB(d.makes) - yB(d.makes + d.misses))
-    .attr('fill', 'var(--bad)');
+    .attr('fill', 'rgba(239,68,68,0.6)');
+
+  console.table(roll.map(d => ({
+  opp: d.opponent, makes: d.makes, misses: d.misses, total: d.makes + d.misses
+})).slice(0,8));
 }
 
 function renderSummary() {
