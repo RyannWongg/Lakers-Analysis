@@ -181,49 +181,6 @@ const yB = d3.scaleLinear().range([H, 0]);
 const xAxisB = gB.append('g').attr('transform', `translate(0,${H})`);
 const yAxisB = gB.append('g');
 
-// function renderBars() {
-//   const f = filtered();
-//   const roll = Array.from(d3.rollup(f, v => ({
-//     makes: d3.sum(v, d => d.makes),
-//     misses: d3.sum(v, d => d.misses)
-//   }), d => d.opponent), ([k, v]) => ({opponent:k, ...v}));
-
-//   roll.sort((a,b) => (b.makes + b.misses) - (a.makes + a.misses));
-
-//   xB.domain(roll.map(d => d.opponent));
-//   yB.domain([0, d3.max(roll, d => d.makes + d.misses) || 10]).nice();
-
-//   xAxisB.call(d3.axisBottom(xB)).selectAll('text').attr('fill','var(--muted)');
-//   yAxisB.call(d3.axisLeft(yB).ticks(5)).selectAll('text').attr('fill','var(--muted)');
-//   xAxisB.selectAll('path,line').attr('stroke','var(--grid)');
-//   yAxisB.selectAll('path,line').attr('stroke','var(--grid)');
-
-//   const groups = gB.selectAll('.bargrp').data(roll, d => d.opponent).join(
-//     enter => enter.append('g').attr('class','bargrp').attr('transform', d => `translate(${xB(d.opponent)},0)`),
-//     update => update.attr('transform', d => `translate(${xB(d.opponent)},0)`)
-//   );
-
-
-//     // --- Draw TOTAL attempts in red as the base ---
-//   groups.selectAll('rect.total').data(d => [d]).join('rect')
-//     .attr('class','total')
-//     .attr('x', 0)
-//     .attr('width', xB.bandwidth())
-//     .attr('y', d => yB(d.total))
-//     .attr('height', d => yB(0) - yB(d.makes + d.misses))
-//     .attr('fill', 'var(--bad)');
-
-//   // --- Draw MAKES in green on top (shorter bar) ---
-//   groups.selectAll('rect.makes').data(d => [d]).join('rect')
-//     .attr('class','makes')
-//     .attr('x', 0)
-//     .attr('width', xB.bandwidth())
-//     .attr('y', d => yB(d.makes))
-//     .attr('height', d => yB(0) - yB(d.makes))
-//     .attr('fill', 'rgba(34,197,94,0.9)');
-
-// }
-
 function renderBars() {
   const f = filtered();
 
@@ -233,8 +190,7 @@ function renderBars() {
       f,
       v => {
         const makes    = d3.sum(v, d => d.makes || 0);
-        const attempts = d3.sum(v, d => d.attempts || (d.makes + (d.misses || 0)) || 0);
-        const total    = attempts;
+        const total = d3.sum(v, d => d.attempts || (d.makes + (d.misses || 0)) || 0);
         const misses   = Math.max(0, total - makes);
         return { makes, misses, total };
       },
