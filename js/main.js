@@ -58,7 +58,7 @@ function renderKPIs() {
 
 // =============== TIMELINE (FG% per game) ===============
 const svgT = d3.select('#timeline');
-const m = {top: 20, right: 16, bottom: 46, left: 46};
+const m = {top: 20, right: 16, bottom: 36, left: 46};
 const W = 900 - m.left - m.right;
 const H = 260 - m.top - m.bottom;
 const gT = svgT.append('g').attr('transform', `translate(${m.left},${m.top})`);
