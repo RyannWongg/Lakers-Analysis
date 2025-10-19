@@ -216,7 +216,7 @@ function renderBars() {
     .attr('x', 0)
     .attr('width', xB.bandwidth())
     .attr('y', d => yB(d.makes + d.misses))
-    .attr('height', d => H - yB(d.makes + d.misses))
+    .attr('height', d => yB(d.makes) - yB(d.makes + d.misses))
     .attr('fill', 'var(--bad)');
 }
 
