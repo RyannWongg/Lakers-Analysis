@@ -234,7 +234,7 @@ function renderBars() {
     .attr('fill', 'var(--good)');
 
   // DEBUG: verify totals
-  console.table(roll.map(d => ({opp:d.opponent, makes:d.makes, misses:d.misses, total:d.total})));
+  console.log(roll.map(d => ({opp:d.opponent, makes:d.makes, misses:d.misses, total:d.total})));
 }
 
 
