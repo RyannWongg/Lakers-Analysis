@@ -237,7 +237,9 @@ function renderBars() {
 
   // Optional: quick sanity check in console
   // console.table(roll.slice(0,8).map(d => ({opp:d.opponent, makes:d.makes, misses:d.misses, total:d.total})));
-  }
+}
+
+
 }
 
 function renderSummary() {
