@@ -239,9 +239,6 @@ function renderBars() {
   // console.table(roll.slice(0,8).map(d => ({opp:d.opponent, makes:d.makes, misses:d.misses, total:d.total})));
 }
 
-
-}
-
 function renderSummary() {
   const f = filtered();
   const makes = d3.sum(f, d => d.makes);
