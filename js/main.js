@@ -169,6 +169,7 @@ function renderDonut() {
      .attr('text-anchor','middle')
      .attr('dy','0.35em')
      .attr('font-size', '22')
+     .attr('color', 'white')
      .text(d => (d === '–' ? '–' : d + '%'));
 }
 
