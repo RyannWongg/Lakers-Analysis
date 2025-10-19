@@ -203,14 +203,6 @@ function renderBars() {
     update => update.attr('transform', d => `translate(${xB(d.opponent)},0)`)
   );
 
-  groups.selectAll('rect.miss').data(d => [d]).join('rect')
-    .attr('class','miss')
-    .attr('x', 0)
-    .attr('width', xB.bandwidth())
-    .attr('y', d => yB(d.makes + d.misses))
-    .attr('height', d => H - yB(d.makes + d.misses))
-    .attr('fill', 'var(--bad)');
-
   groups.selectAll('rect.make').data(d => [d]).join('rect')
     .attr('class','make')
     .attr('x', 0)
@@ -218,6 +210,14 @@ function renderBars() {
     .attr('y', d => yB(d.makes))
     .attr('height', d => H - yB(d.makes))
     .attr('fill', 'var(--good)');
+
+  groups.selectAll('rect.miss').data(d => [d]).join('rect')
+    .attr('class','miss')
+    .attr('x', 0)
+    .attr('width', xB.bandwidth())
+    .attr('y', d => yB(d.makes + d.misses))
+    .attr('height', d => H - yB(d.makes + d.misses))
+    .attr('fill', 'var(--bad)');
 }
 
 function renderSummary() {
