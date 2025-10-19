@@ -227,21 +227,23 @@ const yAxisB = gB.append('g');
 function renderBars() {
   const f = filtered();
 
-  // 1) aggregate and compute TOTAL
+  // Aggregate by opponent using attempts & makes (recompute misses here)
   const roll = Array.from(
-    d3.rollup(f, v => ({
-      makes: d3.sum(v, d => d.makes),
-      misses: d3.sum(v, d => d.misses)
-    }), d => d.opponent),
-    ([opponent, v]) => ({
-      opponent,
-      makes: v.makes,
-      misses: v.misses,
-      total: v.makes + v.misses
-    })
+    d3.rollup(
+      f,
+      v => {
+        const makes    = d3.sum(v, d => d.makes || 0);
+        const attempts = d3.sum(v, d => d.attempts || (d.makes + (d.misses || 0)) || 0);
+        const total    = attempts;
+        const misses   = Math.max(0, total - makes);
+        return { makes, misses, total };
+      },
+      d => d.opponent
+    ),
+    ([opponent, agg]) => ({ opponent, ...agg })
   ).sort((a,b) => b.total - a.total);
 
-  // 2) scales
+  // Scales
   xB.domain(roll.map(d => d.opponent));
   yB.domain([0, d3.max(roll, d => d.total) || 10]).nice();
 
@@ -253,32 +255,34 @@ function renderBars() {
   const groups = gB.selectAll('.bargrp')
     .data(roll, d => d.opponent)
     .join(
-      enter => enter.append('g')
-        .attr('class','bargrp')
-        .attr('transform', d => `translate(${xB(d.opponent)},0)`),
+      enter => enter.append('g').attr('class','bargrp')
+                    .attr('transform', d => `translate(${xB(d.opponent)},0)`),
       update => update.attr('transform', d => `translate(${xB(d.opponent)},0)`)
     );
 
-  // 3) draw TOTAL (red) as background
+  // Draw TOTAL (red) behind
   groups.selectAll('rect.total').data(d => [d]).join('rect')
     .attr('class','total')
     .attr('x', 0)
     .attr('width', xB.bandwidth())
     .attr('y', d => yB(d.total))
     .attr('height', d => yB(0) - yB(d.total))
-    .attr('fill', 'var(--bad)'); // RED
+    .attr('fill', 'var(--bad)');
 
-  // 4) draw MAKES (green) on top
+  // Draw MAKES (green) on top
   groups.selectAll('rect.makes').data(d => [d]).join('rect')
     .attr('class','makes')
     .attr('x', 0)
     .attr('width', xB.bandwidth())
     .attr('y', d => yB(d.makes))
     .attr('height', d => yB(0) - yB(d.makes))
-    .attr('fill', 'var(--good)'); // GREEN
+    .attr('fill', 'var(--good)');
 
-  // (optional) quick sanity check in console
+  // Optional: quick sanity check in console
   console.table(roll.slice(0,8).map(d => ({opp:d.opponent, makes:d.makes, misses:d.misses, total:d.total})));
+}
+
+
 }
 
 
