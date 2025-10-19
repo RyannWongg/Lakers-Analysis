@@ -209,7 +209,7 @@ function renderBars() {
     .attr('width', xB.bandwidth())
     .attr('y', d => yB(d.makes))
     .attr('height', d => H - yB(d.makes))
-    .attr('fill', 'var(--good)');
+    .attr('fill', 'green');
 
   groups.selectAll('rect.miss').data(d => [d]).join('rect')
     .attr('class','miss')
