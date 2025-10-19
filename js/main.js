@@ -184,7 +184,6 @@ const yAxisB = gB.append('g');
 function renderBars() {
   const f = filtered();
 
-  // Aggregate by opponent using attempts & makes (recompute misses here)
   const roll = Array.from(
     d3.rollup(
       f,
@@ -200,7 +199,6 @@ function renderBars() {
     ([opponent, agg]) => ({ opponent, ...agg })
   ).sort((a,b) => b.total - a.total);
 
-  // Scales
   xB.domain(roll.map(d => d.opponent));
   yB.domain([0, d3.max(roll, d => d.total) || 10]).nice();
 
@@ -217,7 +215,7 @@ function renderBars() {
       update => update.attr('transform', d => `translate(${xB(d.opponent)},0)`)
     );
 
-  // Draw TOTAL (red) behind
+  // TOTAL (red) behind
   groups.selectAll('rect.total').data(d => [d]).join('rect')
     .attr('class','total')
     .attr('x', 0)
@@ -226,7 +224,7 @@ function renderBars() {
     .attr('height', d => yB(0) - yB(d.total))
     .attr('fill', 'var(--bad)');
 
-  // Draw MAKES (green) on top
+  // MAKES (green) on top
   groups.selectAll('rect.makes').data(d => [d]).join('rect')
     .attr('class','makes')
     .attr('x', 0)
@@ -235,9 +233,10 @@ function renderBars() {
     .attr('height', d => yB(0) - yB(d.makes))
     .attr('fill', 'var(--good)');
 
-  // Optional: quick sanity check in console
-  console.table(roll.slice(0,8).map(d => ({opp:d.opponent, makes:d.makes, misses:d.misses, total:d.total})));
+  // DEBUG: verify totals
+  console.table(roll.map(d => ({opp:d.opponent, makes:d.makes, misses:d.misses, total:d.total})));
 }
+
 
 function renderSummary() {
   const f = filtered();
