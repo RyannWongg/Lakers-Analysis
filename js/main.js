@@ -210,8 +210,8 @@ function renderBars() {
     .attr('x', 0)
     .attr('width', xB.bandwidth())
     .attr('y', d => yB(d.total))
-    .attr('height', d => yB(0) - yB(d.total))
-    .attr('fill', 'rgba(34,197,94,0.9)');
+    .attr('height', d => yB(0) - yB(d.makes + d.misses))
+    .attr('fill', 'var(--bad)');
 
   // --- Draw MAKES in green on top (shorter bar) ---
   groups.selectAll('rect.makes').data(d => [d]).join('rect')
@@ -221,22 +221,6 @@ function renderBars() {
     .attr('y', d => yB(d.makes))
     .attr('height', d => yB(0) - yB(d.makes))
     .attr('fill', 'rgba(34,197,94,0.9)');
-  
-  // groups.selectAll('rect.make').data(d => [d]).join('rect')
-  //   .attr('class','make')
-  //   .attr('x', 0)
-  //   .attr('width', xB.bandwidth())
-  //   .attr('y', d => yB(d.makes))
-  //   .attr('height', d => H - yB(d.makes))
-  //   .attr('fill', 'var(--good)');
-
-  // groups.selectAll('rect.miss').data(d => [d]).join('rect')
-  //   .attr('class','miss')
-  //   .attr('x', 0)
-  //   .attr('width', xB.bandwidth())
-  //   .attr('y', d => yB(d.makes + d.misses))
-  //   .attr('height', d => yB(d.makes) - yB(d.makes + d.misses))
-  //   .attr('fill', 'var(--bad)');
 
 }
 
