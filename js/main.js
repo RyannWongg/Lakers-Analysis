@@ -63,8 +63,9 @@ const W = 900 - m.left - m.right;
 const H = 260 - m.top - m.bottom;
 const gT = svgT.append('g').attr('transform', `translate(${m.left},${m.top})`);
 
+const Y_MIN = 0.35, Y_MAX = 0.65;
 const xT = d3.scaleTime().range([0, W]);
-const yT = d3.scaleLinear().range([H, 0]).domain([0, 1]);
+const yT = d3.scaleLinear().range([H, 0]).domain([Y_MIN, Y_MAX]);
 
 const xAxisT = gT.append('g').attr('transform', `translate(0,${H})`).attr('class', 'x-axis');
 const yAxisT = gT.append('g').attr('class', 'y-axis');
@@ -81,13 +82,17 @@ function renderTimeline() {
   const fAll = data.filter(d => (state.type === 'all' || d.type === state.type)
                              && (state.opponent === 'all' || d.opponent === state.opponent));
   xT.domain(d3.extent(fAll, d => d.date));
+  const tickVals = d3.range(Y_MIN, Y_MAX + 1e-9, 0.10);
 
   xAxisT.call(d3.axisBottom(xT).ticks(6).tickSizeOuter(0)).selectAll('text').attr('fill', 'var(--muted)');
-  yAxisT.call(d3.axisLeft(yT).ticks(5).tickFormat(d3.format('.0%')).tickSizeOuter(0))
-         .selectAll('text').attr('fill', 'var(--muted)');
+  yAxisT.call(d3.axisLeft(yT)
+    .tickValues(tickVals)
+    .tickFormat(d3.format('.0%'))
+    .tickSizeOuter(0))
+    .selectAll('text').attr('fill', 'var(--muted)');
   yAxisT.selectAll('path,line').attr('stroke', 'var(--grid)');
 
-  grid.selectAll('line').data(d3.range(0, 1.01, 0.25)).join('line')
+  grid.selectAll('line').data(tickVals).join('line')
       .attr('x1', 0).attr('x2', W)
       .attr('y1', d => yT(d)).attr('y2', d => yT(d))
       .attr('stroke', 'var(--grid)');
@@ -130,7 +135,7 @@ function renderTimeline() {
   if (state.range) brushG.call(brush.move, state.range.map(xT));
 
   renderDonut();
-  renderBars();
+  renderBeeswarm();
   renderKPIs();
   renderSummary();
 }
@@ -139,7 +144,7 @@ function brushed(event) {
   const sel = event.selection || d3.brushSelection(brushG.node());
   state.range = sel ? sel.map(xT.invert) : null;
   renderDonut();
-  renderBars();
+  renderBeeswarm();
   renderKPIs();
   renderSummary();
 }
@@ -173,7 +178,7 @@ function renderDonut() {
      .text(d => (d === '–' ? '–' : d + '%'));
 }
 
-// =============== STACKED BARS (per opponent) ===============
+// =============== Beeswarm (per opponent) ===============
 const svgB = d3.select('#bars');
 // bars-specific margins & inner size (viewBox of #bars is 900 x 220)
 const mB = { top: 20, right: 16, bottom: 46, left: 46 };
@@ -187,61 +192,120 @@ const yB = d3.scaleLinear().range([HB, 0]);
 const xAxisB = gB.append('g').attr('transform', `translate(0,${HB})`);
 const yAxisB = gB.append('g');
 
-function renderBars() {
+function renderBeeswarm() {
   const f = filtered();
 
-  const roll = Array.from(
-    d3.rollup(
-      f,
-      v => {
-        const makes    = d3.sum(v, d => d.makes || 0);
-        const attempts = d3.sum(v, d => d.attempts || (d.makes + (d.misses || 0)) || 0);
-        const total    = attempts;
-        const misses   = Math.max(0, total - makes);
-        return { makes, misses, total };
-      },
-      d => d.opponent
-    ),
-    ([opponent, agg]) => ({ opponent, ...agg })
-  ).sort((a,b) => b.total - a.total);
+  // --- Sum makes/misses by opponent ---
+  const byOpp = d3.rollups(
+    f,
+    v => ({
+      makes: d3.sum(v, d => d.makes || 0),
+      misses: d3.sum(v, d => d.misses || 0)
+    }),
+    d => d.opponent
+  );
 
-  xB.domain(roll.map(d => d.opponent));
-  yB.domain([0, d3.max(roll, d => d.total) || 10]).nice();
+  // --- Two sizes: big = 20 attempts, small = 1 attempt ---
+  const UNIT   = 20;     // <<< big dot represents 20
+  const rSmall = 3.2;
+  const rBig   = 8.0;
+  const midY   = H / 2;
+  const gap    = 40;
 
-  xAxisB.call(d3.axisBottom(xB)).selectAll('text').attr('fill','var(--muted)');
-  yAxisB.call(d3.axisLeft(yB).ticks(5)).selectAll('text').attr('fill','var(--muted)');
+  let nodes = [];
+  for (const [opponent, agg] of byOpp) {
+    // MAKES
+    const bigM = Math.floor(agg.makes / UNIT);
+    const remM = agg.makes % UNIT;
+    for (let i = 0; i < bigM; i++) nodes.push({ opponent, side:'make',  count: UNIT, r: rBig });
+    for (let i = 0; i < remM; i++)  nodes.push({ opponent, side:'make',  count: 1,    r: rSmall });
+
+    // MISSES
+    const bigX = Math.floor(agg.misses / UNIT);
+    const remX = agg.misses % UNIT;
+    for (let i = 0; i < bigX; i++) nodes.push({ opponent, side:'miss',  count: UNIT, r: rBig });
+    for (let i = 0; i < remX; i++)  nodes.push({ opponent, side:'miss',  count: 1,    r: rSmall });
+  }
+
+  // X scale is opponents; no Y axis
+  const opponents = byOpp.map(([opp]) => opp).sort();
+  xB.domain(opponents);
+
+  xAxisB.call(d3.axisBottom(xB))
+        .selectAll('text')
+        .attr('fill','var(--muted)');
   xAxisB.selectAll('path,line').attr('stroke','var(--grid)');
-  yAxisB.selectAll('path,line').attr('stroke','var(--grid)');
+  yAxisB.selectAll('*').remove();
 
-  const groups = gB.selectAll('.bargrp')
-    .data(roll, d => d.opponent)
+  // Clear old bars/shapes
+  gB.selectAll('.bargrp, rect.total, rect.makes, rect.miss').remove();
+
+  // Targets (mirrored around midline)
+  nodes.forEach(d => {
+    d.xTarget = xB(d.opponent) + xB.bandwidth() / 2;
+    d.yTarget = d.side === 'make' ? (midY - gap) : (midY + gap);
+  });
+
+  // Draw big on top
+  nodes.sort((a,b) => a.count - b.count); // small first, big last
+
+  // Force layout
+  const sim = d3.forceSimulation(nodes)
+    .force('x', d3.forceX(d => d.xTarget).strength(0.35))
+    .force('y', d3.forceY(d => d.yTarget).strength(0.25))
+    .force('collide', d3.forceCollide(d => d.r + 0.9)) // a bit more spacing
+    .stop();
+
+  for (let i = 0; i < 260; i++) sim.tick();
+
+  // Midline + labels
+  gB.selectAll('.midline').data([0]).join('line')
+    .attr('class','midline')
+    .attr('x1', 0).attr('x2', W)
+    .attr('y1', midY).attr('y2', midY)
+    .attr('stroke', 'var(--grid)');
+
+  gB.selectAll('.sideLabelTop').data([0]).join('text')
+    .attr('class','sideLabelTop')
+    .attr('x', 6).attr('y', midY - gap - 10)
+    .attr('fill', 'var(--muted)').attr('font-size', 12)
+    .text('Makes — big = 20, small = 1');
+
+  gB.selectAll('.sideLabelBot').data([0]).join('text')
+    .attr('class','sideLabelBot')
+    .attr('x', 6).attr('y', midY + gap + 16)
+    .attr('fill', 'var(--muted)').attr('font-size', 12)
+    .text('Misses — big = 20, small = 1');
+
+  // Dots
+  const tt = d3.select('#tt');
+  gB.selectAll('circle.dot')
+    .data(nodes, (d, i) => `${d.opponent}-${d.side}-${d.count}-${i}`)
     .join(
-      enter => enter.append('g').attr('class','bargrp')
-                    .attr('transform', d => `translate(${xB(d.opponent)},0)`),
-      update => update.attr('transform', d => `translate(${xB(d.opponent)},0)`)
+      enter => enter.append('circle')
+        .attr('class', 'dot')
+        .attr('r', d => d.r)
+        .attr('cx', d => d.x)
+        .attr('cy', d => d.y)
+        .attr('fill', d => d.side === 'make' ? 'var(--good)' : 'var(--bad)')
+        .attr('opacity', 0.95)
+        .on('mouseenter', (evt, d) => {
+          tt.html(
+              `<b>${d.opponent}</b><br/>` +
+              `${d.side === 'make' ? 'Makes' : 'Misses'}: ${d.count === UNIT ? UNIT : 1}`
+            )
+            .style('left', (evt.clientX + 12) + 'px')
+            .style('top',  (evt.clientY + 12) + 'px')
+            .style('opacity', 1);
+        })
+        .on('mouseleave', () => tt.style('opacity', 0)),
+      update => update
+        .attr('r', d => d.r)
+        .attr('cx', d => d.x)
+        .attr('cy', d => d.y)
     );
-
-  // TOTAL (red) behind
-  groups.selectAll('rect.total').data(d => [d]).join('rect')
-    .attr('class','total')
-    .attr('x', 0)
-    .attr('width', xB.bandwidth())
-    .attr('y', d => yB(d.total))
-    .attr('height', d => yB(0) - yB(d.total))
-    .attr('fill', 'var(--bad)');
-
-  // MAKES (green) on top
-  groups.selectAll('rect.makes').data(d => [d]).join('rect')
-    .attr('class','makes')
-    .attr('x', 0)
-    .attr('width', xB.bandwidth())
-    .attr('y', d => yB(d.makes))
-    .attr('height', d => yB(0) - yB(d.makes))
-    .attr('fill', 'var(--good)');
-
-  // DEBUG: verify totals
-  console.log(roll.map(d => ({opp:d.opponent, makes:d.makes, misses:d.misses, total:d.total})));
 }
+
 
 
 function renderSummary() {
@@ -263,7 +327,7 @@ function renderSummary() {
 function renderAll() {
   renderTimeline();
   renderDonut();
-  renderBars();
+  renderBeeswarm();
   renderKPIs();
   renderSummary();
 }
