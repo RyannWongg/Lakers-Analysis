@@ -60,7 +60,7 @@ a:hover { text-decoration: underline; }
 
 .split {
   display: grid;
-  grid-template-columns: 6.5fr 2.75fr;  /* left / right - slightly more space for pie chart */
+  grid-template-columns: 6fr 3fr;  /* left / right - more space for right panel */
   gap: 10px;
   align-items: stretch;
   height: 100%;

@@ -192,12 +192,13 @@ function renderDonut() {
 const svgB = d3.select('#bars');
 
 const vb = svgB.node().viewBox.baseVal;
-const mB = { top: 15, right: 12, bottom: 38, left: 8 };
+const mB = { top: 10, right: 5, bottom: 30, left: 150 };
 const WB = vb.width  - mB.left - mB.right;   // inner width
 const HB = vb.height - mB.top  - mB.bottom;  // inner height
 
 const gB = svgB.append('g').attr('transform', `translate(${mB.left},${mB.top})`);
-const xB = d3.scaleBand().range([0, WB]).padding(0.2);
+const GRAPH_OFFSET = 30; // shift graph content to the right
+const xB = d3.scaleBand().range([GRAPH_OFFSET, WB]).padding(0.3);  // increased from 0.2 to 0.3
 const yB = d3.scaleLinear().range([HB, 0]);
 
 const xAxisB = gB.append('g').attr('transform', `translate(0,${HB})`);
@@ -249,23 +250,23 @@ function renderBeeswarm() {
   const UNIT_MED = 5;                 // medium dot = 5 attempts
   const UNIT_SML = 1;                 // small dot = 1 attempt
   const colBW  = xB.bandwidth();
-  const rBig   = Math.min(13, colBW * 0.32);
+  const rBig   = Math.min(20, colBW * 0.43);  // increased from 13 to 20, and 0.32 to 0.43
   const rMed   = rBig * Math.sqrt(UNIT_MED / UNIT_BIG);   // sqrt(5/25) = 0.447 for area scaling
   const rSmall = rBig * Math.sqrt(UNIT_SML / UNIT_BIG);   // sqrt(1/25) = 0.2 for area scaling
   const midY   = HB / 2;
 
   // Vertical stacking from midline outward (no force sim)
-  const INNER_PX = 26;                // first dot offset from midline
-  const PAD      = 0.7;               // space between stacked dots
+  const INNER_PX = 31;                // first dot offset from midline (increased by 5)
+  const PAD      = 2.5;               // space between stacked dots (increased from 0.7)
 
   // Per-opponent FG% label (centered per column, at midline)
-  const FG_LABEL_SIZE = 9;
+  const FG_LABEL_SIZE = 12;           // increased from 9 to 12
   const FG_LABEL_DY   = 3;
 
   // === Overall FG% + left labels ===
   // Adjust these to move the block + spacing
-  const FG_LEFT_X = -5;     // move more negative to go further left (adjusted for smaller left margin)
-  const LINE_H    = 14;      // tspans line height (increased for better spacing)
+  const FG_LEFT_X = 15;     // positive value moves legends to the right
+  const LINE_H    = 18;      // tspans line height (increased from 14 to 18 for more spacing)
   
   // Position FG% label and value centered on the midline (horizontal axis)
   const FG_CAP_DY = -3;      // caption "FG%" slightly above midline
@@ -381,7 +382,7 @@ function renderBeeswarm() {
     .attr('x', FG_LEFT_X)
     .attr('y', midY + FG_CAP_DY)
     .attr('text-anchor', 'end')
-    .attr('font-size', 13)
+    .attr('font-size', 16)
     .attr('fill', 'var(--muted)')
     .text('FG%');
 
@@ -390,7 +391,7 @@ function renderBeeswarm() {
     .attr('x', FG_LEFT_X)
     .attr('y', midY + FG_VAL_DY)
     .attr('text-anchor', 'end')
-    .attr('font-size', 16)
+    .attr('font-size', 19)
     .attr('font-weight', 700)
     .attr('fill', '#fff')
     .text(d3.format('.0%')(overallFG));
@@ -404,22 +405,22 @@ function renderBeeswarm() {
 
   makeBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 12).attr('fill', 'var(--muted)')
+    .attr('font-size', 15).attr('fill', 'var(--muted)')
     .text('big = 25');
 
   makeBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 12).attr('fill', 'var(--muted)')
+    .attr('font-size', 15).attr('fill', 'var(--muted)')
     .text('med = 5');
 
   makeBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 12).attr('fill', 'var(--muted)')
+    .attr('font-size', 15).attr('fill', 'var(--muted)')
     .text('small = 1');
 
   makeBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 13).attr('fill', 'var(--good)')
+    .attr('font-size', 16).attr('fill', 'var(--good)')
     .attr('font-weight', 600)
     .text('Makes');
 
@@ -432,23 +433,23 @@ function renderBeeswarm() {
 
   missBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', 0)
-    .attr('font-size', 13).attr('fill', 'var(--bad)')
+    .attr('font-size', 16).attr('fill', 'var(--bad)')
     .attr('font-weight', 600)
     .text('Misses');
 
   missBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 12).attr('fill', 'var(--muted)')
+    .attr('font-size', 15).attr('fill', 'var(--muted)')
     .text('big = 25');
 
   missBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 12).attr('fill', 'var(--muted)')
+    .attr('font-size', 15).attr('fill', 'var(--muted)')
     .text('med = 5');
 
   missBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 12).attr('fill', 'var(--muted)')
+    .attr('font-size', 15).attr('fill', 'var(--muted)')
     .text('small = 1');
 
   // --- Draw dots ---
