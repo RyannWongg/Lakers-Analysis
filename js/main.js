@@ -134,7 +134,6 @@ function renderTimeline() {
   brushG.call(brush);
   if (state.range) brushG.call(brush.move, state.range.map(xT));
 
-  renderDonut();
   renderBeeswarm();
   renderKPIs();
   renderSummary();
@@ -143,39 +142,10 @@ function renderTimeline() {
 function brushed(event) {
   const sel = event.selection || d3.brushSelection(brushG.node());
   state.range = sel ? sel.map(xT.invert) : null;
-  renderDonut();
   renderBeeswarm();
   renderKPIs();
   renderSummary();
-}
-
-// =============== DONUT (Makes vs Misses) ===============
-const svgD = d3.select('#donut');
-const gD = svgD.append('g').attr('transform', 'translate(130,130)');
-const arc = d3.arc().innerRadius(60).outerRadius(100);
-const pie = d3.pie().value(d => d.v).sort(null);
-
-function renderDonut() {
-  const f = filtered();
-  const makes = d3.sum(f, d => d.makes);
-  const misses = d3.sum(f, d => d.misses);
-  const pieData = [
-    {k:'Makes', v:makes, c:'var(--good)'},
-    {k:'Misses', v:misses, c:'var(--bad)'}
-  ];
-  gD.selectAll('path').data(pie(pieData)).join('path')
-    .attr('d', arc)
-    .attr('fill', d => d.data.c);
-
-  const total = makes + misses;
-  const pct = total ? (makes/total*100).toFixed(1) : '–';
-  gD.selectAll('text.center').data([pct]).join('text')
-     .attr('class','center')
-     .attr('text-anchor','middle')
-     .attr('dy','0.35em')
-     .attr('font-size', '22')
-     .attr('fill', '#fff')
-     .text(d => (d === '–' ? '–' : d + '%'));
+  renderPlayerStats();
 }
 
 // =============== Beeswarm (per opponent) ===============
@@ -306,8 +276,6 @@ function renderBeeswarm() {
     );
 }
 
-
-
 function renderSummary() {
   const f = filtered();
   const makes = d3.sum(f, d => d.makes);
@@ -326,11 +294,344 @@ function renderSummary() {
 
 function renderAll() {
   renderTimeline();
-  renderDonut();
   renderBeeswarm();
   renderKPIs();
   renderSummary();
 }
+
+// =============== PLAYER CARD STACK ===============
+const playerImages = [
+  'anthony_davis.webp',
+  'austin_reaves.webp',
+  'dalton_knecht.webp',
+  'lebron_james.webp',
+  'luke_doncic.webp',
+  'max_christie.webp',
+  'rui_hachimura.webp'
+];
+const playerNames = [
+  'Anthony Davis',
+  'Austin Reaves',
+  'Dalton Knecht',
+  'LeBron James',
+  'Luke Doncic',
+  'Max Christie',
+  'Rui Hachimura'
+];
+
+// Map player names to their Basketball Reference IDs
+const playerIDs = {
+  'Anthony Davis': 'davisan02',
+  'Austin Reaves': 'reaveau01',
+  'Dalton Knecht': 'knechda01',
+  'LeBron James': 'jamesle01',
+  'Luke Doncic': 'doncilu01',  // placeholder - adjust if needed
+  'Max Christie': 'chrisma02',
+  'Rui Hachimura': 'hachiru01'
+};
+
+// Store per-game player data
+let playerGameData = [];
+
+const playerCardStack = document.getElementById('player-card-stack');
+let currentFeaturedIdx = 3; // LeBron James (index 3)
+
+function showFeaturedCard(idx) {
+  const featuredContainer = document.querySelector('.featured-card-container');
+  if (!featuredContainer) return;
+  
+  const img = playerImages[idx];
+  const name = playerNames[idx];
+  
+  // Create new featured card with animation
+  featuredContainer.innerHTML = `
+    <div class="featured-card">
+      <img src="data/player_cards/${img}" alt="${name}" />
+    </div>
+  `;
+  
+  currentFeaturedIdx = idx;
+  
+  // Update player stats when card changes
+  renderPlayerStats();
+}
+
+// =============== PLAYER STATS BAR CHART ===============
+function renderPlayerStats() {
+  if (playerGameData.length === 0) return; // Data not loaded yet
+  
+  const currentPlayerName = playerNames[currentFeaturedIdx];
+  const currentPlayerID = playerIDs[currentPlayerName];
+  
+  // Filter player's games based on selected date range
+  let playerGames = playerGameData.filter(d => d.playerId === currentPlayerID);
+  
+  // Apply date range filter if brush selection exists
+  if (state.range) {
+    playerGames = playerGames.filter(d => 
+      d.gameDate >= state.range[0] && d.gameDate <= state.range[1]
+    );
+  }
+  
+  // Select and clear SVG
+  const svgStats = d3.select('#player-stats');
+  svgStats.selectAll('*').remove();
+  
+  if (playerGames.length === 0) {
+    // Display N/A message for players without data
+    const gNA = svgStats.append('g').attr('transform', 'translate(200, 180)');
+    gNA.append('text')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('text-anchor', 'middle')
+      .attr('fill', 'var(--muted)')
+      .attr('font-size', '16px')
+      .attr('font-weight', 'bold')
+      .text(`${currentPlayerName}`);
+    gNA.append('text')
+      .attr('x', 0)
+      .attr('y', 30)
+      .attr('text-anchor', 'middle')
+      .attr('fill', 'var(--muted)')
+      .attr('font-size', '14px')
+      .text('N/A - No data available');
+    gNA.append('text')
+      .attr('x', 0)
+      .attr('y', 55)
+      .attr('text-anchor', 'middle')
+      .attr('fill', 'var(--muted)')
+      .attr('font-size', '12px')
+      .text('(for selected range)');
+    return;
+  }
+  
+  // Calculate averages
+  const avgStats = {
+    'FG%': d3.mean(playerGames, d => d.fgPct) * 100,
+    '3P%': d3.mean(playerGames, d => d.tpPct) * 100,
+    'FT%': d3.mean(playerGames, d => d.ftPct) * 100,
+    'ORB': d3.mean(playerGames, d => d.orb),
+    'DRB': d3.mean(playerGames, d => d.drb),
+    'AST': d3.mean(playerGames, d => d.ast),
+    'STL': d3.mean(playerGames, d => d.stl),
+    'BLK': d3.mean(playerGames, d => d.blk),
+    'TOV': d3.mean(playerGames, d => d.tov),
+    'PF': d3.mean(playerGames, d => d.pf),
+    'PTS': d3.mean(playerGames, d => d.pts)
+  };
+  
+  // Max values for scaling (percentage stats scale to 100, counting stats to reasonable max)
+  const maxValues = {
+    'FG%': 100, '3P%': 100, 'FT%': 100,
+    'ORB': 5, 'DRB': 15, 'AST': 15, 'STL': 5, 'BLK': 5, 'TOV': 8, 'PF': 6, 'PTS': 40
+  };
+  
+  const marginStats = {top: 20, right: 40, bottom: 10, left: 60};
+  const widthStats = 400 - marginStats.left - marginStats.right;
+  const heightStats = 360 - marginStats.top - marginStats.bottom;
+  
+  const gStats = svgStats.append('g').attr('transform', `translate(${marginStats.left},${marginStats.top})`);
+  
+  const stats = Object.keys(avgStats);
+  const yStats = d3.scaleBand().domain(stats).range([0, heightStats]).padding(0.2);
+  const xStats = d3.scaleLinear().domain([0, 100]).range([0, widthStats]);
+  
+  // Add title
+  gStats.append('text')
+    .attr('x', widthStats / 2)
+    .attr('y', -5)
+    .attr('text-anchor', 'middle')
+    .attr('fill', 'var(--text)')
+    .attr('font-size', '14px')
+    .attr('font-weight', 'bold')
+    .text(`${currentPlayerName} Stats${playerGames.length > 1 ? ` (Avg of ${playerGames.length} games)` : ''}`);
+  
+  // Y axis
+  gStats.append('g')
+    .call(d3.axisLeft(yStats))
+    .selectAll('text')
+    .attr('fill', 'var(--muted)')
+    .attr('font-size', '12px');
+  
+  gStats.selectAll('path, line').attr('stroke', 'var(--grid)');
+  
+  // Bars
+  const tt = d3.select('#tt');
+  const bars = gStats.selectAll('.stat-bar')
+    .data(stats)
+    .join('g')
+    .attr('class', 'stat-bar')
+    .attr('transform', d => `translate(0,${yStats(d)})`);
+  
+  bars.append('rect')
+    .attr('x', 0)
+    .attr('y', 0)
+    .attr('height', yStats.bandwidth())
+    .attr('width', d => {
+      const val = avgStats[d];
+      const max = maxValues[d];
+      const pct = (val / max) * 100;
+      return xStats(Math.min(pct, 100));
+    })
+    .attr('fill', d => {
+      // Color code: percentages in gold, counting stats in purple
+      if (d.includes('%')) return 'var(--lakers-gold)';
+      return 'var(--lakers-purple)';
+    })
+    .attr('opacity', 0.85)
+    .on('mouseenter', (evt, d) => {
+      const val = avgStats[d];
+      const display = d.includes('%') ? val.toFixed(1) + '%' : val.toFixed(1);
+      tt.html(`<b>${d}</b><br/>${display}`)
+        .style('left', (evt.clientX + 12) + 'px')
+        .style('top', (evt.clientY + 12) + 'px')
+        .style('opacity', 1);
+    })
+    .on('mouseleave', () => tt.style('opacity', 0));
+  
+  // Value labels
+  bars.append('text')
+    .attr('x', d => {
+      const val = avgStats[d];
+      const max = maxValues[d];
+      const pct = (val / max) * 100;
+      return xStats(Math.min(pct, 100)) + 5;
+    })
+    .attr('y', yStats.bandwidth() / 2)
+    .attr('dy', '0.35em')
+    .attr('fill', 'var(--text)')
+    .attr('font-size', '11px')
+    .text(d => {
+      const val = avgStats[d];
+      return d.includes('%') ? val.toFixed(1) + '%' : val.toFixed(1);
+    });
+}
+
+function initializePlayerCards() {
+  if (!playerCardStack) return;
+  
+  playerCardStack.innerHTML = '';
+  
+  // Create featured card container (large card in the center)
+  const featuredContainer = document.createElement('div');
+  featuredContainer.className = 'featured-card-container';
+  playerCardStack.appendChild(featuredContainer);
+  
+  // Show default featured card (LeBron James)
+  showFeaturedCard(currentFeaturedIdx);
+  
+  // Create container for mini cards (stacked layout)
+  const miniCardsContainer = document.createElement('div');
+  miniCardsContainer.className = 'mini-cards-container';
+  
+  const totalCards = playerImages.length;
+  const stackSpacing = 30; // spacing between each stacked card
+  
+  // Create mini cards in a stacked layout
+  playerImages.forEach((img, idx) => {
+    const name = playerNames[idx];
+    const firstName = name.split(' ')[0]; // Get only first name
+    const miniCard = document.createElement('div');
+    miniCard.className = 'mini-card';
+    
+    // Stack cards with slight offset
+    miniCard.style.top = `${idx * stackSpacing}px`;
+    miniCard.style.zIndex = totalCards - idx;
+    
+    miniCard.innerHTML = `
+      <img src="data/player_cards/${img}" alt="${name}" />
+      <div class="mini-name-overlay">${firstName}</div>
+    `;
+    
+    // Click to feature this card
+    miniCard.addEventListener('click', () => {
+      showFeaturedCard(idx);
+    });
+    
+    miniCardsContainer.appendChild(miniCard);
+  });
+  
+  playerCardStack.appendChild(miniCardsContainer);
+}
+
+if (playerCardStack) {
+  initializePlayerCards();
+}
+
+// =============== LOAD PER-GAME PLAYER DATA ===============
+async function loadPlayerGameData() {
+  const gameFiles = Array.from({length: 20}, (_, i) => i + 1);
+  const allPlayerData = [];
+  
+  for (const gameNum of gameFiles) {
+    try {
+      const text = await d3.text(`./data/2024-2025_reg_per_game/${gameNum}.csv`);
+      const rows = d3.csvParseRows(text);
+      if (rows.length < 2) continue;
+      
+      const headers = rows[0];
+      const dataRows = rows.slice(1);
+      
+      // Find column indices
+      const idxMap = {};
+      headers.forEach((h, i) => {
+        if (h === 'FG%') idxMap.fgPct = i;
+        else if (h === '3P%') idxMap.tpPct = i;
+        else if (h === 'FT%') idxMap.ftPct = i;
+        else if (h === 'ORB') idxMap.orb = i;
+        else if (h === 'DRB') idxMap.drb = i;
+        else if (h === 'AST') idxMap.ast = i;
+        else if (h === 'STL') idxMap.stl = i;
+        else if (h === 'BLK') idxMap.blk = i;
+        else if (h === 'TOV') idxMap.tov = i;
+        else if (h === 'PF') idxMap.pf = i;
+        else if (h === 'PTS') idxMap.pts = i;
+        else if (h === '-9999') idxMap.playerId = i;
+      });
+      
+      // Parse each player's stats for this game
+      for (const row of dataRows) {
+        const playerId = row[idxMap.playerId];
+        if (!playerId) continue;
+        
+        // Parse stats, handling empty values
+        const parseVal = (idx) => {
+          const val = row[idx];
+          if (!val || val === '') return 0;
+          const num = parseFloat(val);
+          return isNaN(num) ? 0 : num;
+        };
+        
+        allPlayerData.push({
+          gameNum,
+          gameDate: null, // Will be linked after main data loads
+          playerId,
+          fgPct: parseVal(idxMap.fgPct),
+          tpPct: parseVal(idxMap.tpPct),
+          ftPct: parseVal(idxMap.ftPct),
+          orb: parseVal(idxMap.orb),
+          drb: parseVal(idxMap.drb),
+          ast: parseVal(idxMap.ast),
+          stl: parseVal(idxMap.stl),
+          blk: parseVal(idxMap.blk),
+          tov: parseVal(idxMap.tov),
+          pf: parseVal(idxMap.pf),
+          pts: parseVal(idxMap.pts)
+        });
+      }
+    } catch (err) {
+      console.warn(`Failed to load game ${gameNum}:`, err);
+    }
+  }
+  
+  playerGameData = allPlayerData;
+  console.log('Loaded player game data:', playerGameData.length, 'player-game records');
+}
+
+// Load player data first
+loadPlayerGameData().then(() => {
+  console.log('Player game data ready');
+});
 
 // ---- Data loader (use your CSV from /data) ----
 // If you used my cleaned file name, this will Just Work™
@@ -395,8 +696,20 @@ d3.text('./data/lakers_2024-2025_regular_season.csv').then(text => {
   data = out;
   console.log('Loaded rows:', data.length);
   console.table(data.slice(0,5));
+  
+  // Link game dates to player data
+  data.forEach((game, idx) => {
+    const gameNum = idx + 1;
+    playerGameData.forEach(pd => {
+      if (pd.gameNum === gameNum) {
+        pd.gameDate = game.date;
+      }
+    });
+  });
+  
   populateOpponents();
   renderAll();
+  renderPlayerStats();
   console.log(data);
 }).catch(err => console.error('CSV text load error:', err));
 
