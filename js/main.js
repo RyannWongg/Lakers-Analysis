@@ -687,3 +687,98 @@ function switchPlayer(newIndex) {
   }, 200);
 }
 
+// =============== PLAYER CARDS ===============
+function initPlayerCards() {
+  const mainCard = document.getElementById('main-card');
+  const mainCardImg = document.getElementById('main-card-img');
+  const mainCardName = document.getElementById('main-card-name');
+  const cardStack = document.getElementById('card-stack');
+  
+  // Display default card (LeBron James)
+  displayPlayerCard(currentPlayerIndex);
+  
+  // Create stacked cards for all other players
+  playerCards.forEach((player, index) => {
+    if (index === currentPlayerIndex) return; // Skip the current player
+    
+    const stackCard = document.createElement('div');
+    stackCard.className = 'stacked-card';
+    stackCard.dataset.index = index;
+    
+    const img = document.createElement('img');
+    img.src = `data/player_cards/${player.file}`;
+    img.alt = player.name;
+    
+    const nameLabel = document.createElement('div');
+    nameLabel.className = 'stack-name';
+    nameLabel.textContent = player.firstName;
+    
+    stackCard.appendChild(img);
+    stackCard.appendChild(nameLabel);
+    
+    stackCard.addEventListener('click', () => {
+      switchPlayer(index);
+    });
+    
+    cardStack.appendChild(stackCard);
+  });
+}
+
+function displayPlayerCard(index) {
+  const player = playerCards[index];
+  const mainCardImg = document.getElementById('main-card-img');
+  const mainCardName = document.getElementById('main-card-name');
+  
+  mainCardImg.src = `data/player_cards/${player.file}`;
+  mainCardImg.alt = player.name;
+  mainCardName.textContent = player.name;
+}
+
+function switchPlayer(newIndex) {
+  if (newIndex === currentPlayerIndex) return;
+  
+  const mainCard = document.getElementById('main-card');
+  
+  // Smooth animation
+  mainCard.style.transform = 'scale(0.9) rotateY(90deg)';
+  mainCard.style.opacity = '0.5';
+  
+  setTimeout(() => {
+    currentPlayerIndex = newIndex;
+    displayPlayerCard(newIndex);
+    
+    // Rebuild the stack
+    const cardStack = document.getElementById('card-stack');
+    cardStack.innerHTML = '';
+    
+    playerCards.forEach((player, index) => {
+      if (index === currentPlayerIndex) return;
+      
+      const stackCard = document.createElement('div');
+      stackCard.className = 'stacked-card';
+      stackCard.dataset.index = index;
+      
+      const img = document.createElement('img');
+      img.src = `data/player_cards/${player.file}`;
+      img.alt = player.name;
+      
+      const nameLabel = document.createElement('div');
+      nameLabel.className = 'stack-name';
+      nameLabel.textContent = player.firstName;
+      
+      stackCard.appendChild(img);
+      stackCard.appendChild(nameLabel);
+      
+      stackCard.addEventListener('click', () => {
+        switchPlayer(index);
+      });
+      
+      cardStack.appendChild(stackCard);
+    });
+    
+    // Animate back
+    mainCard.style.transform = 'scale(1) rotateY(0deg)';
+    mainCard.style.opacity = '1';
+  }, 200);
+}
+
