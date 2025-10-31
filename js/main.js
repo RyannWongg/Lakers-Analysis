@@ -180,10 +180,11 @@ function renderDonut() {
 
 // =============== Beeswarm (per opponent) ===============
 const svgB = d3.select('#bars');
-// bars-specific margins & inner size (viewBox of #bars is 900 x 220)
+
+const vb = svgB.node().viewBox.baseVal;
 const mB = { top: 20, right: 16, bottom: 46, left: 46 };
-const WB = 900 - mB.left - mB.right;   // width inside margins
-const HB = 220 - mB.top - mB.bottom;   // height inside margins
+const WB = vb.width  - mB.left - mB.right;   // inner width
+const HB = vb.height - mB.top  - mB.bottom;  // inner height
 
 const gB = svgB.append('g').attr('transform', `translate(${mB.left},${mB.top})`);
 const xB = d3.scaleBand().range([0, WB]).padding(0.2);
@@ -192,6 +193,20 @@ const yB = d3.scaleLinear().range([HB, 0]);
 const xAxisB = gB.append('g').attr('transform', `translate(0,${HB})`);
 const yAxisB = gB.append('g');
 
+// Keep stacks vertical: snap x near center and compact y to avoid overlaps
+function compactVertical(arr, pad = 0.6) {
+  // sort by target y so we "sweep" along the column
+  arr.sort((a,b) => a.y - b.y);
+  for (let i = 1; i < arr.length; i++) {
+    const prev = arr[i-1], cur = arr[i];
+    const minGap = (prev.r + cur.r) + pad; // no-touch distance
+    if ((cur.y - prev.y) < minGap) {
+      cur.y = prev.y + minGap; // push down just enough
+    }
+  }
+}
+
+// === Beeswarm (per opponent), vertical stacks, UNIT = 20 ===
 function renderBeeswarm() {
   const f = filtered();
 
@@ -200,34 +215,13 @@ function renderBeeswarm() {
     f,
     v => ({
       makes: d3.sum(v, d => d.makes || 0),
-      misses: d3.sum(v, d => d.misses || 0)
+      misses: d3.sum(v, d => d.misses || 0),
+      attempts: d3.sum(v, d => (d.makes || 0) + (d.misses || 0))
     }),
     d => d.opponent
   );
 
-  // --- Two sizes: big = 20 attempts, small = 1 attempt ---
-  const UNIT   = 20;     // <<< big dot represents 20
-  const rSmall = 3.2;
-  const rBig   = 8.0;
-  const midY   = H / 2;
-  const gap    = 40;
-
-  let nodes = [];
-  for (const [opponent, agg] of byOpp) {
-    // MAKES
-    const bigM = Math.floor(agg.makes / UNIT);
-    const remM = agg.makes % UNIT;
-    for (let i = 0; i < bigM; i++) nodes.push({ opponent, side:'make',  count: UNIT, r: rBig });
-    for (let i = 0; i < remM; i++)  nodes.push({ opponent, side:'make',  count: 1,    r: rSmall });
-
-    // MISSES
-    const bigX = Math.floor(agg.misses / UNIT);
-    const remX = agg.misses % UNIT;
-    for (let i = 0; i < bigX; i++) nodes.push({ opponent, side:'miss',  count: UNIT, r: rBig });
-    for (let i = 0; i < remX; i++)  nodes.push({ opponent, side:'miss',  count: 1,    r: rSmall });
-  }
-
-  // X scale is opponents; no Y axis
+  // --- Scales & axes (x = opponents) ---
   const opponents = byOpp.map(([opp]) => opp).sort();
   xB.domain(opponents);
 
@@ -237,47 +231,175 @@ function renderBeeswarm() {
   xAxisB.selectAll('path,line').attr('stroke','var(--grid)');
   yAxisB.selectAll('*').remove();
 
-  // Clear old bars/shapes
-  gB.selectAll('.bargrp, rect.total, rect.makes, rect.miss').remove();
+  // Clear previous marks
+  gB.selectAll('.midline,.sideLabelTop,.sideLabelBot,circle.dot,text.fgLabel,.fgOverall,.fgOverallCap,.fgBlockMake,.fgBlockMiss').remove();
 
-  // Targets (mirrored around midline)
-  nodes.forEach(d => {
-    d.xTarget = xB(d.opponent) + xB.bandwidth() / 2;
-    d.yTarget = d.side === 'make' ? (midY - gap) : (midY + gap);
-  });
+  // --- Sizes & layout controls ---
+  const UNIT   = 20;                  // big dot = 20 attempts
+  const colBW  = xB.bandwidth();
+  const rBig   = Math.min(10, colBW * 0.26);
+  const rSmall = Math.max(3.2, rBig * 0.45);
+  const midY   = HB / 2;
 
-  // Draw big on top
-  nodes.sort((a,b) => a.count - b.count); // small first, big last
+  // Vertical stacking from midline outward (no force sim)
+  const INNER_PX = 32;                // first dot offset from midline
+  const PAD      = 1.0;               // space between stacked dots
 
-  // Force layout
-  const sim = d3.forceSimulation(nodes)
-    .force('x', d3.forceX(d => d.xTarget).strength(0.35))
-    .force('y', d3.forceY(d => d.yTarget).strength(0.25))
-    .force('collide', d3.forceCollide(d => d.r + 0.9)) // a bit more spacing
-    .stop();
+  // Per-opponent FG% label (centered per column, at midline)
+  const FG_LABEL_SIZE = 10;
+  const FG_LABEL_DY   = -2;
 
-  for (let i = 0; i < 260; i++) sim.tick();
+  // === Overall FG% + left labels ===
+  // Adjust these to move the block + spacing
+  const FG_LEFT_X = 1;     // move more negative to go further left
+  const FG_CAP_DY = -8;      // caption "FG%" vs midline
+  const FG_VAL_DY = +12;     // percentage vs midline
+  const LINE_H    = 12;      // tspans line height
 
-  // Midline + labels
-  gB.selectAll('.midline').data([0]).join('line')
-    .attr('class','midline')
-    .attr('x1', 0).attr('x2', W)
+  // Start y for the top 3-line block ("Makes", "big=20", "small=1")
+  // Place it high enough so it doesn't collide with the FG% caption/value.
+  const MAKE_Y = FG_CAP_DY - (LINE_H * 3); // first line starts well above FG%
+  // Start y for the bottom 3-line block ("Misses", "big=20", "small=1")
+  const MISS_Y = FG_VAL_DY + 22;           // a bit below the FG% value
+
+  // --- Build nodes (two sizes: 20 vs 1) ---
+  let nodes = [];
+  for (const [opponent, agg] of byOpp) {
+    const m20 = Math.floor(agg.makes / UNIT), m1 = agg.makes % UNIT;
+    const x20 = Math.floor(agg.misses / UNIT), x1 = agg.misses % UNIT;
+
+    for (let i = 0; i < m20; i++) nodes.push({ opponent, side: 'make',  count: UNIT, r: rBig });
+    for (let i = 0; i < m1;  i++) nodes.push({ opponent, side: 'make',  count: 1,    r: rSmall });
+    for (let i = 0; i < x20; i++) nodes.push({ opponent, side: 'miss',  count: UNIT, r: rBig });
+    for (let i = 0; i < x1;  i++) nodes.push({ opponent, side: 'miss',  count: 1,    r: rSmall });
+  }
+
+  // --- Deterministic vertical stacking from the midline (no overlap) ---
+  const grouped = d3.group(nodes, d => d.opponent, d => d.side);
+
+  for (const [opp, bySide] of grouped) {
+    const cx = xB(opp) + colBW / 2;
+
+    function placeSide(side, sign) {
+      const arr = bySide.get(side) || [];
+      // Larger circles nearer midline
+      arr.sort((a, b) => b.r - a.r);
+
+      let cumOffset = 0;
+      let lastR = 0;
+      arr.forEach((d, i) => {
+        const base = INNER_PX;
+        if (i === 0) {
+          d.x = cx;
+          d.y = midY + sign * base;
+        } else {
+          cumOffset += (lastR + PAD + d.r);
+          d.x = cx;
+          d.y = midY + sign * (base + cumOffset);
+        }
+        lastR = d.r;
+      });
+    }
+
+    placeSide('make', -1); // up
+    placeSide('miss', +1); // down
+  }
+
+  // --- Midline ---
+  gB.append('line')
+    .attr('class', 'midline')
+    .attr('x1', 0).attr('x2', WB)
     .attr('y1', midY).attr('y2', midY)
     .attr('stroke', 'var(--grid)');
 
-  gB.selectAll('.sideLabelTop').data([0]).join('text')
-    .attr('class','sideLabelTop')
-    .attr('x', 6).attr('y', midY - gap - 10)
-    .attr('fill', 'var(--muted)').attr('font-size', 12)
-    .text('Makes — big = 20, small = 1');
+  // --- Per-opponent FG% labels (centered per column) ---
+  const fgMap = new Map(
+    byOpp.map(([opp, agg]) => {
+      const fg = agg.attempts ? agg.makes / agg.attempts : 0;
+      return [opp, fg];
+    })
+  );
 
-  gB.selectAll('.sideLabelBot').data([0]).join('text')
-    .attr('class','sideLabelBot')
-    .attr('x', 6).attr('y', midY + gap + 16)
-    .attr('fill', 'var(--muted)').attr('font-size', 12)
-    .text('Misses — big = 20, small = 1');
+  gB.selectAll('text.fgLabel')
+    .data(opponents)
+    .join('text')
+      .attr('class', 'fgLabel')
+      .attr('font-size', FG_LABEL_SIZE)
+      .attr('fill', 'var(--muted)')
+      .attr('text-anchor', 'middle')
+      .attr('x', d => xB(d) + colBW / 2)
+      .attr('y', midY + FG_LABEL_DY)
+      .text(d => d3.format('.0%')(fgMap.get(d) || 0));
 
-  // Dots
+  // --- Overall FG% (center-left) ---
+  const totalMakes = d3.sum(f, d => d.makes || 0);
+  const totalAtts  = d3.sum(f, d => (d.makes || 0) + (d.misses || 0));
+  const overallFG  = totalAtts ? totalMakes / totalAtts : 0;
+
+  gB.append('text')
+    .attr('class', 'fgOverallCap')
+    .attr('x', FG_LEFT_X)
+    .attr('y', midY + FG_CAP_DY)
+    .attr('text-anchor', 'end')
+    .attr('font-size', 12)
+    .attr('fill', 'var(--muted)')
+    .text('FG%');
+
+  gB.append('text')
+    .attr('class', 'fgOverall')
+    .attr('x', FG_LEFT_X)
+    .attr('y', midY + FG_VAL_DY)
+    .attr('text-anchor', 'end')
+    .attr('font-size', 14)
+    .attr('font-weight', 700)
+    .attr('fill', '#fff')
+    .text(d3.format('.0%')(overallFG));
+
+  // --- LEFT multi-line "Makes" block (three lines) ---
+  const makeBlock = gB.append('text')
+    .attr('class', 'fgBlockMake')
+    .attr('x', FG_LEFT_X)
+    .attr('y', midY + MAKE_Y)
+    .attr('text-anchor', 'end');
+
+  makeBlock.append('tspan')
+    .attr('x', FG_LEFT_X).attr('dy', -10)
+    .attr('font-size', 11).attr('fill', 'var(--muted)')
+    .text('big = 20');
+
+  makeBlock.append('tspan')
+    .attr('x', FG_LEFT_X).attr('dy', 13)
+    .attr('font-size', 11).attr('fill', 'var(--muted)')
+    .text('small = 1');
+
+  makeBlock.append('tspan')
+    .attr('x', FG_LEFT_X).attr('dy', 15)
+    .attr('font-size', 11).attr('fill', 'var(--good)')
+    .text('Makes');
+
+  // --- LEFT multi-line "Misses" block (three lines) ---
+  const missBlock = gB.append('text')
+    .attr('class', 'fgBlockMiss')
+    .attr('x', FG_LEFT_X)
+    .attr('y', midY + MISS_Y)
+    .attr('text-anchor', 'end');
+
+  missBlock.append('tspan')
+    .attr('x', FG_LEFT_X).attr('dy', 0)
+    .attr('font-size', 11).attr('fill', 'var(--bad)')
+    .text('Misses');
+
+  missBlock.append('tspan')
+    .attr('x', FG_LEFT_X).attr('dy', LINE_H)
+    .attr('font-size', 11).attr('fill', 'var(--muted)')
+    .text('big = 20');
+
+  missBlock.append('tspan')
+    .attr('x', FG_LEFT_X).attr('dy', LINE_H)
+    .attr('font-size', 11).attr('fill', 'var(--muted)')
+    .text('small = 1');
+
+  // --- Draw dots ---
   const tt = d3.select('#tt');
   gB.selectAll('circle.dot')
     .data(nodes, (d, i) => `${d.opponent}-${d.side}-${d.count}-${i}`)
@@ -291,22 +413,20 @@ function renderBeeswarm() {
         .attr('opacity', 0.95)
         .on('mouseenter', (evt, d) => {
           tt.html(
-              `<b>${d.opponent}</b><br/>` +
-              `${d.side === 'make' ? 'Makes' : 'Misses'}: ${d.count === UNIT ? UNIT : 1}`
-            )
-            .style('left', (evt.clientX + 12) + 'px')
-            .style('top',  (evt.clientY + 12) + 'px')
-            .style('opacity', 1);
+            `<b>${d.opponent}</b><br/>` +
+            `${d.side === 'make' ? 'Makes' : 'Misses'}: ${d.count === UNIT ? UNIT : 1}`
+          )
+          .style('left', (evt.clientX + 12) + 'px')
+          .style('top',  (evt.clientY + 12) + 'px')
+          .style('opacity', 1);
         })
         .on('mouseleave', () => tt.style('opacity', 0)),
       update => update
-        .attr('r', d => d.r)
         .attr('cx', d => d.x)
         .attr('cy', d => d.y)
+        .attr('r',  d => d.r)
     );
 }
-
-
 
 function renderSummary() {
   const f = filtered();

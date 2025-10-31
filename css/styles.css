@@ -1,5 +1,10 @@
 
-.app { max-width: 1400px; }   /* was 1100px */
+.app { 
+    max-width: 1400px; 
+    width: 100%; 
+    display: grid; 
+    gap: 16px;
+}
 :root {
     --bg: #0f1115;
     --panel: #171a21;
@@ -17,7 +22,7 @@ body {
   background: var(--bg); color: var(--ink);
   display: grid; place-items: start center; padding: 24px;
 }
-.app { max-width: 1100px; width: 100%; display: grid; gap: 16px; }
+
 header { display:flex; align-items:baseline; justify-content:space-between; gap: 8px; }
 h1 { font-size: 20px; margin: 0; letter-spacing: 0.3px; }
 .sub { color: var(--muted); font-size: 13px; }
@@ -50,16 +55,42 @@ a:hover { text-decoration: underline; }
 
 .split {
   display: grid;
-  grid-template-columns: 7fr 3fr;
-  gap: 16px;
+  grid-template-columns: 8fr 2fr;  /* left / right */
+  gap: 12px;
+  align-items: stretch;
+  /* Give the whole split some vertical space to allocate 8:2 inside left */
+  min-height: 72vh;               /* tweak as you like (65–80vh works well) */
 }
 .left-col {
   display: grid;
-  grid-template-rows: auto auto;
-  gap: 16px;
+  grid-template-rows: 6fr 4fr;    /* top: bars/beeswarm, bottom: timeline */
+  gap: 12px;
+  min-height: 0;                  /* important in nested grids */
+}
+.panel.chart-wrap {
+  display: grid;
+  grid-template-rows: auto 1fr;  /* legend + chart */
+  padding: 12px;                  /* a bit more breathing room */
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid #1f2430;
+  min-height: 0;
+}
+.panel.chart-wrap > svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.legend .sw {
+  display:inline-block;
+  width:12px; height:12px;
+  border-radius:2px;
+  margin-right:6px;
+  vertical-align:middle;
 }
 
 /* Mobile: stack them */
 @media (max-width: 900px) {
   .split { grid-template-columns: 1fr; }
 }
+
