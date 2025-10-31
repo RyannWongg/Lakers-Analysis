@@ -46,7 +46,7 @@
             <span class="sw" style="background:var(--good)"></span> Makes
             <span class="sw" style="background:var(--bad)"></span> Misses
           </div>
-          <svg id="bars" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet"></svg>
+          <svg id="bars" viewBox="0 0 900 400" preserveAspectRatio="xMidYMid meet"></svg>
         </div>
 
         <div class="panel chart-wrap">
@@ -59,20 +59,20 @@
       </div>
 
       <!-- RIGHT: donut + summary -->
-      <div class="panel chart-wrap" style="display:grid; grid-template-columns:1fr; gap:12px; align-items:start">
-        <svg id="donut" width="260" height="260" viewBox="0 0 260 260" style="justify-self:center"></svg>
+      <div class="panel chart-wrap right-panel">
+        <svg id="donut" width="100%" height="auto" viewBox="0 0 260 260" style="max-width: 220px; margin: 0 auto; display: block;"></svg>
 
-        <div>
-          <h3 style="margin:0 0 8px; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.5px">
+        <div style="margin-top: 12px;">
+          <h3 style="margin:0 0 6px; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.5px">
             Selected Range Summary
           </h3>
-          <ul id="summary" style="list-style:none; padding:0; margin:0; font-size:14px; line-height:1.6">
+          <ul id="summary" style="list-style:none; padding:0; margin:0; font-size:13px; line-height:1.5">
             <li>Games: –</li>
             <li>FG%: –</li>
             <li>Attempts: –</li>
             <li>Avg Pace (min/game): –</li>
           </ul>
-          <p class="sub" style="margin-top:10px">Brush on the timeline to restrict the range. Hover points for details.</p>
+          <p class="sub" style="margin-top:8px; font-size: 11px;">Brush on the timeline to restrict the range. Hover points for details.</p>
         </div>
       </div>
     </section>

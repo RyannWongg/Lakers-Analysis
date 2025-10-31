@@ -192,7 +192,7 @@ function renderDonut() {
 const svgB = d3.select('#bars');
 
 const vb = svgB.node().viewBox.baseVal;
-const mB = { top: 20, right: 16, bottom: 46, left: 46 };
+const mB = { top: 15, right: 12, bottom: 38, left: 8 };
 const WB = vb.width  - mB.left - mB.right;   // inner width
 const HB = vb.height - mB.top  - mB.bottom;  // inner height
 
@@ -245,43 +245,73 @@ function renderBeeswarm() {
   gB.selectAll('.midline,.sideLabelTop,.sideLabelBot,circle.dot,text.fgLabel,.fgOverall,.fgOverallCap,.fgBlockMake,.fgBlockMiss').remove();
 
   // --- Sizes & layout controls ---
-  const UNIT   = 20;                  // big dot = 20 attempts
+  const UNIT_BIG = 25;                // big dot = 25 attempts
+  const UNIT_MED = 5;                 // medium dot = 5 attempts
+  const UNIT_SML = 1;                 // small dot = 1 attempt
   const colBW  = xB.bandwidth();
-  const rBig   = Math.min(10, colBW * 0.26);
-  const rSmall = Math.max(3.2, rBig * 0.45);
+  const rBig   = Math.min(13, colBW * 0.32);
+  const rMed   = rBig * Math.sqrt(UNIT_MED / UNIT_BIG);   // sqrt(5/25) = 0.447 for area scaling
+  const rSmall = rBig * Math.sqrt(UNIT_SML / UNIT_BIG);   // sqrt(1/25) = 0.2 for area scaling
   const midY   = HB / 2;
 
   // Vertical stacking from midline outward (no force sim)
-  const INNER_PX = 32;                // first dot offset from midline
-  const PAD      = 1.0;               // space between stacked dots
+  const INNER_PX = 26;                // first dot offset from midline
+  const PAD      = 0.7;               // space between stacked dots
 
   // Per-opponent FG% label (centered per column, at midline)
-  const FG_LABEL_SIZE = 10;
-  const FG_LABEL_DY   = -2;
+  const FG_LABEL_SIZE = 9;
+  const FG_LABEL_DY   = 3;
 
   // === Overall FG% + left labels ===
   // Adjust these to move the block + spacing
-  const FG_LEFT_X = 1;     // move more negative to go further left
-  const FG_CAP_DY = -8;      // caption "FG%" vs midline
-  const FG_VAL_DY = +12;     // percentage vs midline
-  const LINE_H    = 12;      // tspans line height
+  const FG_LEFT_X = -5;     // move more negative to go further left (adjusted for smaller left margin)
+  const LINE_H    = 14;      // tspans line height (increased for better spacing)
+  
+  // Position FG% label and value centered on the midline (horizontal axis)
+  const FG_CAP_DY = -3;      // caption "FG%" slightly above midline
+  const FG_VAL_DY = 13;      // percentage value slightly below midline
+  
+  // Calculate symmetric spacing: both legends should have equal distance from midline
+  // Each legend has 4 lines: 3 size descriptions + 1 label
+  const LEGEND_BLOCK_HEIGHT = LINE_H * 3; // height for the 3 size description lines
+  const LEGEND_GAP = 25; // spacing from midline to nearest label
+  
+  // Start y for the top block ("big=25", "med=5", "small=1", "Makes")
+  // The "Makes" label should be at the same distance from midline as "Misses"
+  const MAKE_Y = -(LEGEND_BLOCK_HEIGHT + LINE_H + LEGEND_GAP);  // Spacing from midline
+  
+  // Start y for the bottom block ("Misses", "big=25", "med=5", "small=1")
+  // Move Misses legend 7 pixels lower
+  const MISS_Y = LEGEND_GAP + 7;  // Spacing from midline + 7px lower
 
-  // Start y for the top 3-line block ("Makes", "big=20", "small=1")
-  // Place it high enough so it doesn't collide with the FG% caption/value.
-  const MAKE_Y = FG_CAP_DY - (LINE_H * 3); // first line starts well above FG%
-  // Start y for the bottom 3-line block ("Misses", "big=20", "small=1")
-  const MISS_Y = FG_VAL_DY + 22;           // a bit below the FG% value
-
-  // --- Build nodes (two sizes: 20 vs 1) ---
+  // --- Build nodes (three sizes: 25, 5, and 1) ---
   let nodes = [];
   for (const [opponent, agg] of byOpp) {
-    const m20 = Math.floor(agg.makes / UNIT), m1 = agg.makes % UNIT;
-    const x20 = Math.floor(agg.misses / UNIT), x1 = agg.misses % UNIT;
-
-    for (let i = 0; i < m20; i++) nodes.push({ opponent, side: 'make',  count: UNIT, r: rBig });
-    for (let i = 0; i < m1;  i++) nodes.push({ opponent, side: 'make',  count: 1,    r: rSmall });
-    for (let i = 0; i < x20; i++) nodes.push({ opponent, side: 'miss',  count: UNIT, r: rBig });
-    for (let i = 0; i < x1;  i++) nodes.push({ opponent, side: 'miss',  count: 1,    r: rSmall });
+    // MAKES: break down into 25s, 5s, and 1s
+    let remainingMakes = agg.makes;
+    const m25 = Math.floor(remainingMakes / UNIT_BIG);
+    remainingMakes -= m25 * UNIT_BIG;
+    const m5 = Math.floor(remainingMakes / UNIT_MED);
+    remainingMakes -= m5 * UNIT_MED;
+    const m1 = Math.floor(remainingMakes / UNIT_SML);
+    remainingMakes -= m1 * UNIT_SML;
+    
+    for (let i = 0; i < m25; i++) nodes.push({ opponent, side: 'make',  count: UNIT_BIG, r: rBig });
+    for (let i = 0; i < m5;  i++) nodes.push({ opponent, side: 'make',  count: UNIT_MED, r: rMed });
+    for (let i = 0; i < m1;  i++) nodes.push({ opponent, side: 'make',  count: UNIT_SML, r: rSmall });
+    
+    // MISSES: break down into 25s, 5s, and 1s
+    let remainingMisses = agg.misses;
+    const x25 = Math.floor(remainingMisses / UNIT_BIG);
+    remainingMisses -= x25 * UNIT_BIG;
+    const x5 = Math.floor(remainingMisses / UNIT_MED);
+    remainingMisses -= x5 * UNIT_MED;
+    const x1 = Math.floor(remainingMisses / UNIT_SML);
+    remainingMisses -= x1 * UNIT_SML;
+    
+    for (let i = 0; i < x25; i++) nodes.push({ opponent, side: 'miss',  count: UNIT_BIG, r: rBig });
+    for (let i = 0; i < x5;  i++) nodes.push({ opponent, side: 'miss',  count: UNIT_MED, r: rMed });
+    for (let i = 0; i < x1;  i++) nodes.push({ opponent, side: 'miss',  count: UNIT_SML, r: rSmall });
   }
 
   // --- Deterministic vertical stacking from the midline (no overlap) ---
@@ -351,7 +381,7 @@ function renderBeeswarm() {
     .attr('x', FG_LEFT_X)
     .attr('y', midY + FG_CAP_DY)
     .attr('text-anchor', 'end')
-    .attr('font-size', 12)
+    .attr('font-size', 13)
     .attr('fill', 'var(--muted)')
     .text('FG%');
 
@@ -360,12 +390,12 @@ function renderBeeswarm() {
     .attr('x', FG_LEFT_X)
     .attr('y', midY + FG_VAL_DY)
     .attr('text-anchor', 'end')
-    .attr('font-size', 14)
+    .attr('font-size', 16)
     .attr('font-weight', 700)
     .attr('fill', '#fff')
     .text(d3.format('.0%')(overallFG));
 
-  // --- LEFT multi-line "Makes" block (three lines) ---
+  // --- LEFT multi-line "Makes" block (four lines) ---
   const makeBlock = gB.append('text')
     .attr('class', 'fgBlockMake')
     .attr('x', FG_LEFT_X)
@@ -373,21 +403,27 @@ function renderBeeswarm() {
     .attr('text-anchor', 'end');
 
   makeBlock.append('tspan')
-    .attr('x', FG_LEFT_X).attr('dy', -10)
-    .attr('font-size', 11).attr('fill', 'var(--muted)')
-    .text('big = 20');
+    .attr('x', FG_LEFT_X).attr('dy', LINE_H)
+    .attr('font-size', 12).attr('fill', 'var(--muted)')
+    .text('big = 25');
 
   makeBlock.append('tspan')
-    .attr('x', FG_LEFT_X).attr('dy', 13)
-    .attr('font-size', 11).attr('fill', 'var(--muted)')
+    .attr('x', FG_LEFT_X).attr('dy', LINE_H)
+    .attr('font-size', 12).attr('fill', 'var(--muted)')
+    .text('med = 5');
+
+  makeBlock.append('tspan')
+    .attr('x', FG_LEFT_X).attr('dy', LINE_H)
+    .attr('font-size', 12).attr('fill', 'var(--muted)')
     .text('small = 1');
 
   makeBlock.append('tspan')
-    .attr('x', FG_LEFT_X).attr('dy', 15)
-    .attr('font-size', 11).attr('fill', 'var(--good)')
+    .attr('x', FG_LEFT_X).attr('dy', LINE_H)
+    .attr('font-size', 13).attr('fill', 'var(--good)')
+    .attr('font-weight', 600)
     .text('Makes');
 
-  // --- LEFT multi-line "Misses" block (three lines) ---
+  // --- LEFT multi-line "Misses" block (four lines) ---
   const missBlock = gB.append('text')
     .attr('class', 'fgBlockMiss')
     .attr('x', FG_LEFT_X)
@@ -396,17 +432,23 @@ function renderBeeswarm() {
 
   missBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', 0)
-    .attr('font-size', 11).attr('fill', 'var(--bad)')
+    .attr('font-size', 13).attr('fill', 'var(--bad)')
+    .attr('font-weight', 600)
     .text('Misses');
 
   missBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 11).attr('fill', 'var(--muted)')
-    .text('big = 20');
+    .attr('font-size', 12).attr('fill', 'var(--muted)')
+    .text('big = 25');
 
   missBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 11).attr('fill', 'var(--muted)')
+    .attr('font-size', 12).attr('fill', 'var(--muted)')
+    .text('med = 5');
+
+  missBlock.append('tspan')
+    .attr('x', FG_LEFT_X).attr('dy', LINE_H)
+    .attr('font-size', 12).attr('fill', 'var(--muted)')
     .text('small = 1');
 
   // --- Draw dots ---
@@ -424,7 +466,7 @@ function renderBeeswarm() {
         .on('mouseenter', (evt, d) => {
           tt.html(
             `<b>${d.opponent}</b><br/>` +
-            `${d.side === 'make' ? 'Makes' : 'Misses'}: ${d.count === UNIT ? UNIT : 1}`
+            `${d.side === 'make' ? 'Makes' : 'Misses'}: ${d.count}`
           )
           .style('left', (evt.clientX + 12) + 'px')
           .style('top',  (evt.clientY + 12) + 'px')
