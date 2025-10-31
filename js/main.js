@@ -18,6 +18,16 @@ $type.addEventListener('change', () => { state.type = $type.value; renderAll(); 
 $opp.addEventListener('change', () => { state.opponent = $opp.value; renderAll(); });
 $smooth.addEventListener('change', () => { state.smooth = $smooth.checked; renderTimeline(); });
 
+// Move header controls into the beeswarm panel (top-right of the #bars panel)
+const headerControls = document.querySelector('header .controls');
+const beeswarmPanel  = document.querySelector('#bars').closest('.chart-wrap');
+if (headerControls && beeswarmPanel) {
+  beeswarmPanel.appendChild(headerControls);
+  headerControls.classList.add('beeswarm-controls');
+  headerControls.classList.remove('panel'); // optional: drop panel styling
+}
+
+
 // Populate opponent list *after* data loads
 function populateOpponents() {
   const keep = $opp.value || 'all';
