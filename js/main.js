@@ -2,6 +2,23 @@
 const parseDate  = d3.timeParse('%d/%m/%Y');
 let data = [];
 
+// Player cards data
+const playerCards = [
+  { name: 'LeBron James', file: 'lebron_james.webp', firstName: 'LeBron' },
+  { name: 'Anthony Davis', file: 'anthony_davis.webp', firstName: 'Anthony' },
+  { name: 'Austin Reaves', file: 'austin_reaves.webp', firstName: 'Austin' },
+  { name: "D'Angelo Russell", file: "d'angelo russell.webp", firstName: "D'Angelo" },
+  { name: 'Rui Hachimura', file: 'rui_hachimura.webp', firstName: 'Rui' },
+  { name: 'Dalton Knecht', file: 'dalton_knecht.webp', firstName: 'Dalton' },
+  { name: 'Jaxson Hayes', file: 'jaxson_hayes.webp', firstName: 'Jaxson' },
+  { name: 'Max Christie', file: 'max_christie.webp', firstName: 'Max' },
+  { name: 'Gabe Vincent', file: 'gabe_vincent.webp', firstName: 'Gabe' },
+  { name: 'Bronny James', file: 'bronny_james.webp', firstName: 'Bronny' },
+  { name: 'Luke Doncic', file: 'luke_doncic.webp', firstName: 'Luke' }
+];
+
+let currentPlayerIndex = 0; // Default to LeBron James
+
 // =============== STATE & DOM ===============
 const state = {
   type: 'all',
@@ -569,8 +586,104 @@ d3.text('./data/lakers_2024-2025_regular_season.csv').then(text => {
   console.log('Loaded rows:', data.length);
   console.table(data.slice(0,5));
   populateOpponents();
+  initPlayerCards();
   renderAll();
   console.log(data);
+
 }).catch(err => console.error('CSV text load error:', err));
 
+// =============== PLAYER CARDS ===============
+function initPlayerCards() {
+  const mainCard = document.getElementById('main-card');
+  const mainCardImg = document.getElementById('main-card-img');
+  const mainCardName = document.getElementById('main-card-name');
+  const cardStack = document.getElementById('card-stack');
+  
+  // Display default card (LeBron James)
+  displayPlayerCard(currentPlayerIndex);
+  
+  // Create stacked cards for all other players
+  playerCards.forEach((player, index) => {
+    if (index === currentPlayerIndex) return; // Skip the current player
+    
+    const stackCard = document.createElement('div');
+    stackCard.className = 'stacked-card';
+    stackCard.dataset.index = index;
+    
+    const img = document.createElement('img');
+    img.src = `data/player_cards/${player.file}`;
+    img.alt = player.name;
+    
+    const nameLabel = document.createElement('div');
+    nameLabel.className = 'stack-name';
+    nameLabel.textContent = player.firstName;
+    
+    stackCard.appendChild(img);
+    stackCard.appendChild(nameLabel);
+    
+    stackCard.addEventListener('click', () => {
+      switchPlayer(index);
+    });
+    
+    cardStack.appendChild(stackCard);
+  });
+}
+
+function displayPlayerCard(index) {
+  const player = playerCards[index];
+  const mainCardImg = document.getElementById('main-card-img');
+  const mainCardName = document.getElementById('main-card-name');
+  
+  mainCardImg.src = `data/player_cards/${player.file}`;
+  mainCardImg.alt = player.name;
+  mainCardName.textContent = player.name;
+}
+
+function switchPlayer(newIndex) {
+  if (newIndex === currentPlayerIndex) return;
+  
+  const mainCard = document.getElementById('main-card');
+  
+  // Smooth animation
+  mainCard.style.transform = 'scale(0.9) rotateY(90deg)';
+  mainCard.style.opacity = '0.5';
+  
+  setTimeout(() => {
+    currentPlayerIndex = newIndex;
+    displayPlayerCard(newIndex);
+    
+    // Rebuild the stack
+    const cardStack = document.getElementById('card-stack');
+    cardStack.innerHTML = '';
+    
+    playerCards.forEach((player, index) => {
+      if (index === currentPlayerIndex) return;
+      
+      const stackCard = document.createElement('div');
+      stackCard.className = 'stacked-card';
+      stackCard.dataset.index = index;
+      
+      const img = document.createElement('img');
+      img.src = `data/player_cards/${player.file}`;
+      img.alt = player.name;
+      
+      const nameLabel = document.createElement('div');
+      nameLabel.className = 'stack-name';
+      nameLabel.textContent = player.firstName;
+      
+      stackCard.appendChild(img);
+      stackCard.appendChild(nameLabel);
+      
+      stackCard.addEventListener('click', () => {
+        switchPlayer(index);
+      });
+      
+      cardStack.appendChild(stackCard);
+    });
+    
+    // Animate back
+    mainCard.style.transform = 'scale(1) rotateY(0deg)';
+    mainCard.style.opacity = '1';
+  }, 200);
+}
 
