@@ -18,11 +18,13 @@
     --good: #22c55e;
     --bad: #ef4444;
     --grid: #222630;
+    --gold: #d4af37;
 }
 html, body { height: 100%; }
 body {
   margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
   background: linear-gradient(135deg, #552583 0%, #8B6FAD 35%, #FDB927 100%);
+  /*background: #3b1163;*/
   color: var(--ink);
   display: grid; place-items: start center; 
   padding: 16px;
@@ -45,7 +47,7 @@ h1 { font-size: 18px; margin: 0; letter-spacing: 0.3px; }
 }
 
 .kpis { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:8px; }
-.kpi { background:#0e1218; border:1px solid #262b36; border-radius:10px; padding:8px; }
+.kpi { background:#0e1218; border:3px solid var(--gold); border-radius:10px; padding:8px; box-shadow: 0 0 0 1px rgba(212,175,55,0.18) inset;}
 .kpi h3 { margin: 0 0 4px; font-size:10px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
 .kpi .val { font-size:20px; font-weight:700; }
 
@@ -53,7 +55,7 @@ h1 { font-size: 18px; margin: 0; letter-spacing: 0.3px; }
 .legend { display:flex; gap:8px; align-items:center; font-size:11px; color:var(--muted); margin-bottom: 4px; }
 .legend .sw { width:10px; height:10px; border-radius:3px; display:inline-block; }
 
-.tooltip { position: fixed; pointer-events:none; background:#0e1218; color:var(--ink); font-size:12px; padding:8px 10px; border:1px solid #262b36; border-radius:10px; opacity:0; transition: opacity 0.12s ease-out; white-space:nowrap; }
+.tooltip { position: fixed; pointer-events:none; background:#0e1218; color:var(--ink); font-size:12px; padding:8px 10px; border:1px solid var(--gold); border-radius:10px; opacity:0; transition: opacity 0.12s ease-out; white-space:nowrap; }
 
 .footer { color: var(--muted); font-size: 11px; text-align:right; padding: 4px 0; }
 a { color: var(--accent); text-decoration: none; }
@@ -255,6 +257,48 @@ a:hover { text-decoration: underline; }
 #player-stats-section {
   margin-top: 20px;
   padding-top: 20px;
+}
+
+/* Make the smoothing control look like the selects */
+.selectlike {
+  background:#0e1218;
+  color:var(--ink);
+  border:1px solid #262b36;
+  border-radius:10px;
+  padding:8px 10px;
+  font-size:13px;
+  line-height:1;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+  user-select:none;
+}
+.selectlike .dot {
+  width:10px; height:10px; border-radius:50%; background:#444;
+}
+.selectlike.on {
+  border-color: var(--accent2);
+  box-shadow: 0 0 0 2px rgba(167,139,250,.15) inset;
+}
+.selectlike.on .dot { background: var(--accent2); }
+
+/* Hide the native checkbox but keep it accessible */
+#smoothChk {
+  position:absolute;
+  opacity:0;
+  width:1px; height:1px;
+  pointer-events:none;
+}
+
+.panel:hover,
+.kpi:hover,
+.selectlike:hover,
+.beeswarm-controls:hover,
+.stacked-card:hover {
+  box-shadow:
+    0 0 0 1px rgba(212,175,55,0.22) inset,
+    0 0 12px rgba(212,175,55,0.18);
 }
 
 /* Mobile: stack them */

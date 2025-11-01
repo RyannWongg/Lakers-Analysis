@@ -47,6 +47,54 @@ if (headerControls && beeswarmPanel) {
   headerControls.classList.remove('panel'); // optional: drop panel styling
 }
 
+// Move only the Smoothing control into the timeline legend
+const timelinePanel  = document.querySelector('#timeline').closest('.chart-wrap');
+const timelineLegend = timelinePanel?.querySelector('.legend');
+
+// Find the <label> that wraps #smoothChk inside the headerControls we just moved
+const smoothLabel = headerControls.querySelector('#smoothChk')?.closest('label');
+
+if (smoothLabel && timelineLegend) {
+  const chk = smoothLabel.querySelector('#smoothChk');
+
+  // Rebuild the label content to a "select-like" pill
+  smoothLabel.textContent = '';                 // clear original "Smoothing" text
+  smoothLabel.classList.add('selectlike');      // apply select-like styling
+
+  const dot = document.createElement('span');
+  dot.className = 'dot';
+
+  const txt = document.createElement('span');
+  const setText = () => { txt.textContent = chk.checked ? 'Smoothing: On' : 'Smoothing: Off'; };
+  setText();
+
+  // Put the hidden checkbox back inside the label (keeps native toggle/accessibility)
+  smoothLabel.append(dot, txt, chk);
+
+  // Reflect state with a class
+  const sync = () => smoothLabel.classList.toggle('on', chk.checked);
+  sync();
+
+  // Update visuals on change
+  chk.addEventListener('change', () => { setText(); sync(); });
+
+  // Drop it into the timeline legend and push to the right
+  timelineLegend.appendChild(smoothLabel);
+  smoothLabel.style.marginLeft = 'auto';
+}
+
+// --- Opponent code → Full team name ---
+const TEAM_NAMES = {
+  ATL: 'Atlanta Hawks', BOS: 'Boston Celtics', BKN: 'Brooklyn Nets', CHA: 'Charlotte Hornets',
+  CHI: 'Chicago Bulls', CLE: 'Cleveland Cavaliers', DAL: 'Dallas Mavericks', DEN: 'Denver Nuggets',
+  DET: 'Detroit Pistons', GSW: 'Golden State Warriors', HOU: 'Houston Rockets', IND: 'Indiana Pacers',
+  LAC: 'Los Angeles Clippers', LAL: 'Los Angeles Lakers', MEM: 'Memphis Grizzlies', MIA: 'Miami Heat',
+  MIL: 'Milwaukee Bucks', MIN: 'Minnesota Timberwolves', NOP: 'New Orleans Pelicans', NYK: 'New York Knicks',
+  OKC: 'Oklahoma City Thunder', ORL: 'Orlando Magic', PHI: 'Philadelphia 76ers',
+  PHO: 'Phoenix Suns', PHX: 'Phoenix Suns', // cover both codes
+  POR: 'Portland Trail Blazers', SAC: 'Sacramento Kings', SAS: 'San Antonio Spurs',
+  TOR: 'Toronto Raptors', UTA: 'Utah Jazz', WAS: 'Washington Wizards'
+};
 
 // Populate opponent list *after* data loads
 function populateOpponents() {
@@ -114,12 +162,54 @@ function renderTimeline() {
   xT.domain(d3.extent(fAll, d => d.date));
   const tickVals = d3.range(Y_MIN, Y_MAX + 1e-9, 0.10);
 
-  xAxisT.call(d3.axisBottom(xT).ticks(6).tickSizeOuter(0)).selectAll('text').attr('fill', 'var(--muted)');
+  // --- Month ticks formatted as YYYY-MM ---
+  const [x0, x1] = xT.domain();
+  const monthSpan = d3.timeMonth.count(x0, x1);
+
+  // adapt the step so labels don’t crowd when the span is long
+  const monthStep =
+    monthSpan > 24 ? 3 :        // every 3 months if > 2 years
+    monthSpan > 12 ? 2 : 1;     // every 2 months if > 1 year, else monthly
+
+  const fmtYM = d3.timeFormat('%Y-%m');
+
+  xAxisT.call(
+    d3.axisBottom(xT)
+      .ticks(d3.timeMonth.every(monthStep))
+      .tickFormat(d => fmtYM(d))
+      .tickSizeOuter(0)
+  );
+
+  // --- X-axis label: "Game date" ---
+  gT.selectAll('.x-axis-label')
+    .data([0])
+    .join('text')
+    .attr('class', 'x-axis-label')
+    .attr('x', W / 2)
+    .attr('y', H + 40)                 // a bit below the axis ticks
+    .attr('text-anchor', 'middle')
+    .attr('fill', 'var(--muted)')
+    .attr('font-size', 12)
+    .text('Game date (YYYY–MM)');
+
+
+  // keep your axis label styling
+  xAxisT.selectAll('text').attr('fill', 'var(--muted)');
   yAxisT.call(d3.axisLeft(yT)
     .tickValues(tickVals)
     .tickFormat(d3.format('.0%'))
     .tickSizeOuter(0))
     .selectAll('text').attr('fill', 'var(--muted)');
+  // --- Y-axis label: "FG%" ---
+  gT.selectAll('.y-axis-label')
+    .data([0])
+    .join('text')
+    .attr('class', 'y-axis-label')
+    .attr('text-anchor', 'middle')
+    .attr('fill', 'var(--muted)')
+    .attr('font-size', 12)
+    .attr('transform', `translate(${-36}, ${H / 2}) rotate(-90)`)
+    .text('FG%');
   yAxisT.selectAll('path,line').attr('stroke', 'var(--grid)');
 
   grid.selectAll('line').data(tickVals).join('line')
@@ -142,23 +232,36 @@ function renderTimeline() {
   lineSmooth.attr('d', lGen(sm)).attr('opacity', state.smooth ? 1 : 0);
 
   const tt = d3.select('#tt');
-  dots.selectAll('circle').data(f, d => d.date).join(
+  const fmtPct = d3.format('.1%');
+const fmtDate = d3.timeFormat('%b %d, %Y');
+
+dots.selectAll('circle')
+  .data(f, d => d.date)
+  .join(
     enter => enter.append('circle')
-                  .attr('r', 3.5)
-                  .attr('cx', d => xT(d.date))
-                  .attr('cy', d => yT(d.fg))
-                  .attr('fill', 'var(--accent)')
-                  .on('mouseenter', (evt,d) => {
-                     const pct = (d.fg*100).toFixed(1)+'%';
-                     tt.html(`<b>${d3.timeFormat('%b %d, %Y')(d.date)}</b><br/>FG% ${pct}<br/>${d.makes}/${d.attempts}  • ${d.opponent} • ${d.type}${d.notes?'<br/>'+d.notes:''}`)
-                       .style('left', (evt.clientX + 12) + 'px')
-                       .style('top', (evt.clientY + 12) + 'px')
-                       .style('opacity', 1);
-                  })
-                  .on('mouseleave', () => tt.style('opacity', 0)),
+      .attr('r', 3.5)
+      .attr('cx', d => xT(d.date))
+      .attr('cy', d => yT(d.fg))
+      .attr('fill', 'var(--accent)')
+      .style('cursor', 'default')
+      .on('mouseenter', (evt, d) => {
+        const tt = d3.select('#tt');
+        tt.html(
+          `<b>${fmtPct(d.fg)}</b><br/>${fmtDate(d.date)}`
+        )
+        .style('left', (evt.clientX + 12) + 'px')
+        .style('top',  (evt.clientY + 12) + 'px')
+        .style('opacity', 1);
+      })
+      .on('mousemove', (evt) => {
+        d3.select('#tt')
+          .style('left', (evt.clientX + 12) + 'px')
+          .style('top',  (evt.clientY + 12) + 'px');
+      })
+      .on('mouseleave', () => d3.select('#tt').style('opacity', 0)),
     update => update
-                  .attr('cx', d => xT(d.date))
-                  .attr('cy', d => yT(d.fg))
+      .attr('cx', d => xT(d.date))
+      .attr('cy', d => yT(d.fg))
   );
 
   brushG.call(brush);
@@ -257,8 +360,39 @@ function renderBeeswarm() {
   xB.domain(opponents);
 
   xAxisB.call(d3.axisBottom(xB))
-        .selectAll('text')
-        .attr('fill','var(--muted)');
+    .selectAll('text')
+    .attr('fill','var(--muted)')
+    .style('cursor','default')
+    .on('mouseenter', (evt, code) => {
+      const tt = d3.select('#tt');
+      const name = TEAM_NAMES[code] || code;
+      d3.select(evt.currentTarget).attr('fill', '#fff'); // highlight label
+      tt.html(`Lakers VS <b>${name}</b>`)
+        .style('left', (evt.clientX + 12) + 'px')
+        .style('top',  (evt.clientY + 12) + 'px')
+        .style('opacity', 1);
+    })
+    .on('mousemove', (evt) => {
+      d3.select('#tt')
+        .style('left', (evt.clientX + 12) + 'px')
+        .style('top',  (evt.clientY + 12) + 'px');
+    })
+    .on('mouseleave', (evt) => {
+      d3.select(evt.currentTarget).attr('fill','var(--muted)');
+      d3.select('#tt').style('opacity', 0);
+    });
+  // --- X-axis label for beeswarm ---
+  gB.selectAll('.x-axisB-label')
+    .data([0])
+    .join('text')
+    .attr('class', 'x-axisB-label')
+    .attr('text-anchor', 'middle')
+    .attr('fill', 'var(--muted)')
+    .attr('font-size', 12)
+    // center under the inner plot area
+    .attr('x', WB / 2)
+    .attr('y', HB + 40) // adjust if you need more/less gap
+    .text('Opponents (teams the Lakers played against)');
   xAxisB.selectAll('path,line').attr('stroke','var(--grid)');
   yAxisB.selectAll('*').remove();
 
@@ -414,7 +548,7 @@ function renderBeeswarm() {
     .attr('font-size', 19)
     .attr('font-weight', 700)
     .attr('fill', '#fff')
-    .text(d3.format('.0%')(overallFG));
+    .text(d3.format('.1%')(overallFG));
 
   // --- LEFT multi-line "Makes" block (four lines) ---
   const makeBlock = gB.append('text')
