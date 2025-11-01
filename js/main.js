@@ -63,8 +63,6 @@ if (smoothLabel && timelineLegend) {
 
   const dot = document.createElement('span');
   dot.className = 'pill-dot';
-  dot.style.animation = 'none';
-  dot.style.transform = 'none';
 
   const txt = document.createElement('span');
   const setText = () => { txt.textContent = chk.checked ? 'Smoothing: On' : 'Smoothing: Off'; };
@@ -342,6 +340,17 @@ function compactVertical(arr, pad = 0.6) {
   }
 }
 
+function stackHeight(radii, base, pad){
+  if (!radii.length) return 0;
+  // larger near midline (you already sort like that in placement)
+  radii = radii.slice().sort((a,b) => b - a);
+  let h = base + radii[0];                // first dot: base + r0
+  for (let i = 1; i < radii.length; i++) {
+    h += (radii[i-1] + pad + radii[i]);   // gap: prevR + pad + curR
+  }
+  return h; // distance from midline to bottom of last circle
+}
+
 // === Beeswarm (per opponent), vertical stacks, UNIT = 20 ===
 function renderBeeswarm() {
   const f = filtered();
@@ -472,27 +481,103 @@ function renderBeeswarm() {
   }
 
   // --- Deterministic vertical stacking from the midline (no overlap) ---
+  // --- Deterministic vertical stacking from the midline (no overlap) ---
   const grouped = d3.group(nodes, d => d.opponent, d => d.side);
 
+  // helper: compute half-column height for a side (no positions needed)
+  function stackHeight(radii, base, pad) {
+    if (!radii.length) return 0;
+    // first dot sits at "base" from midline; then we add (prevR + pad + r)
+    let h = base; 
+    let lastR = 0, first = true;
+    for (const r of radii.sort((a,b)=>b-a)) {
+      if (first) { h = base; first = false; }
+      else { h += (lastR + pad + r); }
+      lastR = r;
+    }
+    return h;
+  }
+
+  // === 1) Compute global vertical scale so the tallest stack fits ===
+  const HALF_AVAIL = HB / 2 - 12; // breathing room
+  let worst = 0;
+
+  for (const [opp, bySide] of grouped) {
+    for (const side of ['make', 'miss']) {
+      const arr = bySide.get(side) || [];
+      if (!arr.length) continue;
+      const radii = arr.map(d => d.r);                 // current radii
+      const h = stackHeight(radii, INNER_PX, PAD);     // unscaled
+      if (h > worst) worst = h;
+    }
+  }
+
+  let s = Math.min(1, worst ? HALF_AVAIL / worst : 1);
+
+  // scaled radii & spacings (initial)
+  let rBigS   = rBig   * s;
+  let rMedS   = rMed   * s;
+  let rSmallS = rSmall * s;
+  let BASE_S  = INNER_PX * s;
+  let PAD_S   = PAD * s;
+
+  // === 2) Enforce a minimum radius so tiny dots don’t vanish ===
+  const MIN_R = 1.5;
+  for (const n of nodes) {
+    const scaled = n.count === 25 ? rBigS : (n.count === 5 ? rMedS : rSmallS);
+    n.r = Math.max(MIN_R, scaled);
+  }
+
+  // Post-check: if min-capping made any column too tall, apply a small extra scale
+  let worst2 = 0;
+  for (const [opp, bySide] of grouped) {
+    for (const side of ['make', 'miss']) {
+      const arr = bySide.get(side) || [];
+      if (!arr.length) continue;
+      const radii2 = arr.map(d => d.r);                // after MIN_R
+      const h2 = stackHeight(radii2, BASE_S, PAD_S);   // scaled + capped
+      if (h2 > worst2) worst2 = h2;
+    }
+  }
+  if (worst2 > HALF_AVAIL) {
+    const s2 = HALF_AVAIL / worst2;
+    for (const n of nodes) n.r *= s2;  // shrink radii a touch
+    BASE_S *= s2;                      // and spacing/base equally
+    PAD_S  *= s2;
+  }
+
+  // (optional) badge if compressed
+  gB.selectAll('.compressed-note').remove();
+  if (s < 0.999 || worst2 > 0) {
+    gB.append('text')
+      .attr('class', 'compressed-note')
+      .attr('x', WB - 4)
+      .attr('y', 12)
+      .attr('text-anchor', 'end')
+      .attr('fill', 'var(--muted)')
+      .attr('font-size', 11)
+      .text('scaled to fit');
+  }
+
+  // === 3) Now place dots, using final BASE_S / PAD_S / n.r ===
   for (const [opp, bySide] of grouped) {
     const cx = xB(opp) + colBW / 2;
 
     function placeSide(side, sign) {
       const arr = bySide.get(side) || [];
-      // Larger circles nearer midline
+      // Larger dots closer to midline
       arr.sort((a, b) => b.r - a.r);
 
       let cumOffset = 0;
       let lastR = 0;
       arr.forEach((d, i) => {
-        const base = INNER_PX;
         if (i === 0) {
           d.x = cx;
-          d.y = midY + sign * base;
+          d.y = midY + sign * (BASE_S);
         } else {
-          cumOffset += (lastR + PAD + d.r);
+          cumOffset += (lastR + PAD_S + d.r);
           d.x = cx;
-          d.y = midY + sign * (base + cumOffset);
+          d.y = midY + sign * (BASE_S + cumOffset);
         }
         lastR = d.r;
       });
@@ -608,7 +693,7 @@ function renderBeeswarm() {
     .attr('font-size', 15).attr('fill', 'var(--muted)')
     .text('small = 1');
 
-  // --- Draw dots ---
+
   // --- Draw dots ---
   const tt = d3.select('#tt');
   gB.selectAll('circle.dot')
