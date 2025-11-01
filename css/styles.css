@@ -332,3 +332,44 @@ a:hover { text-decoration: underline; }
     overflow: auto;
   }
 }
+
+/* Fast floating animation for beeswarm dots */
+.dot {
+  transform-box: fill-box;
+  transform-origin: center;
+
+  /* defaults (overridden per-dot in JS) */
+  --ampY: 5px;      /* vertical distance */
+  --ampX: 5px;      /* horizontal distance */
+  --offsetY: 0px;     /* phase offsets */
+  --offsetX: 0px;
+  --durY: 0.08s;      /* vertical speed (smaller = faster) */
+  --durX: 0.28s;      /* horizontal speed */
+
+  animation-name: floatY, floatX;
+  animation-duration: var(--durY), var(--durX);
+  animation-timing-function: linear, linear;  /* snappy, always-fast */
+  animation-iteration-count: infinite, infinite;
+  animation-direction: alternate, alternate;
+  will-change: transform;
+}
+
+/* pause the bobbing while the user hovers a dot for readability */
+.dot:hover { animation-play-state: paused; }
+
+/* keyframes read the CSS variables above */
+@keyframes floatY {
+  from { transform: translateY(var(--offsetY)); }
+  to   { transform: translateY(calc(var(--offsetY) + var(--ampY))); }
+}
+@keyframes floatX {
+  from { transform: translateX(var(--offsetX)); }
+  to   { transform: translateX(calc(var(--offsetX) + var(--ampX))); }
+}
+
+/* Optional: reduce/disable for users who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  .dot { animation: none; }
+}
+
+

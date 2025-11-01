@@ -571,17 +571,34 @@ function renderBeeswarm() {
     .text('small = 1');
 
   // --- Draw dots ---
+  // --- Draw dots ---
   const tt = d3.select('#tt');
   gB.selectAll('circle.dot')
     .data(nodes, (d, i) => `${d.opponent}-${d.side}-${d.count}-${i}`)
     .join(
       enter => enter.append('circle')
-        .attr('class', 'dot')
+        .attr('class', 'dot') // .dot has floatY,floatX animations via CSS
         .attr('r', d => d.r)
         .attr('cx', d => d.x)
         .attr('cy', d => d.y)
         .attr('fill', d => d.side === 'make' ? 'var(--good)' : 'var(--bad)')
         .attr('opacity', 0.95)
+
+        // floating animation: per-dot randomness
+        .style('--ampY', () => (0.6 + Math.random()*0.8).toFixed(2) + 'px')  // ~0.6–1.4px
+        .style('--offsetY', () => ((Math.random()*2 - 1) * 1.5).toFixed(2) + 'px')
+        .style('--ampX', () => (0.4 + Math.random()*0.6).toFixed(2) + 'px')  // ~0.4–1.0px
+        .style('--offsetX', () => ((Math.random()*2 - 1) * 1.0).toFixed(2) + 'px')
+
+        // set durations via CSS vars (don’t set animation-duration directly)
+        .style('--durY', () => (0.25 + Math.random()*0.25).toFixed(2) + 's') // ~0.25–0.50s
+        .style('--durX', () => (0.35 + Math.random()*0.30).toFixed(2) + 's') // ~0.35–0.65s
+
+        // optional: start at random phase
+        .style('animation-delay', () =>
+          `${(-Math.random()*0.6).toFixed(2)}s, ${(-Math.random()*0.6).toFixed(2)}s`
+        )
+
         .on('mouseenter', (evt, d) => {
           tt.html(
             `<b>${d.opponent}</b><br/>` +
