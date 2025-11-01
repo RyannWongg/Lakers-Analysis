@@ -61,7 +61,7 @@ a:hover { text-decoration: underline; }
 
 .split {
   display: grid;
-  grid-template-columns: 6.5fr 2.7fr;  /* left / right - more space for right panel */
+  grid-template-columns: 7fr 3.5fr;  /* left / right - more space for right panel */
   gap: 10px;
   align-items: stretch;
   height: 100%;

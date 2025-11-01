@@ -14,7 +14,7 @@ const playerCards = [
   { name: 'Max Christie', file: 'max_christie.webp', firstName: 'Max' },
   { name: 'Gabe Vincent', file: 'gabe_vincent.webp', firstName: 'Gabe' },
   { name: 'Bronny James', file: 'bronny_james.webp', firstName: 'Bronny' },
-  { name: 'Luke Doncic', file: 'luke_doncic.webp', firstName: 'Luke' }
+  { name: 'Luka Doncic', file: 'luka_doncic.webp', firstName: 'Luka' }
 ];
 
 let currentPlayerIndex = 0; // Default to LeBron James
@@ -209,7 +209,7 @@ function renderDonut() {
 const svgB = d3.select('#bars');
 
 const vb = svgB.node().viewBox.baseVal;
-const mB = { top: 10, right: 5, bottom: 30, left: 150 };
+const mB = { top: 10, right: 5, bottom: 20, left: 50 };
 const WB = vb.width  - mB.left - mB.right;   // inner width
 const HB = vb.height - mB.top  - mB.bottom;  // inner height
 
@@ -397,7 +397,7 @@ function renderBeeswarm() {
   gB.append('text')
     .attr('class', 'fgOverallCap')
     .attr('x', FG_LEFT_X)
-    .attr('y', midY + FG_CAP_DY)
+    .attr('y', midY + FG_CAP_DY - 7)
     .attr('text-anchor', 'end')
     .attr('font-size', 16)
     .attr('fill', 'var(--muted)')
@@ -417,7 +417,7 @@ function renderBeeswarm() {
   const makeBlock = gB.append('text')
     .attr('class', 'fgBlockMake')
     .attr('x', FG_LEFT_X)
-    .attr('y', midY + MAKE_Y)
+    .attr('y', midY + MAKE_Y - 10)
     .attr('text-anchor', 'end');
 
   makeBlock.append('tspan')
@@ -445,7 +445,7 @@ function renderBeeswarm() {
   const missBlock = gB.append('text')
     .attr('class', 'fgBlockMiss')
     .attr('x', FG_LEFT_X)
-    .attr('y', midY + MISS_Y)
+    .attr('y', midY + MISS_Y + 6)
     .attr('text-anchor', 'end');
 
   missBlock.append('tspan')
