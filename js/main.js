@@ -47,6 +47,44 @@ if (headerControls && beeswarmPanel) {
   headerControls.classList.remove('panel'); // optional: drop panel styling
 }
 
+// Move only the Smoothing control into the timeline legend
+const timelinePanel  = document.querySelector('#timeline').closest('.chart-wrap');
+const timelineLegend = timelinePanel?.querySelector('.legend');
+
+// Find the <label> that wraps #smoothChk inside the headerControls we just moved
+const smoothLabel = headerControls.querySelector('#smoothChk')?.closest('label');
+
+if (smoothLabel && timelineLegend) {
+  const chk = smoothLabel.querySelector('#smoothChk');
+
+  // Rebuild the label content to a "select-like" pill
+  smoothLabel.textContent = '';                 // clear original "Smoothing" text
+  smoothLabel.classList.add('selectlike');      // apply select-like styling
+
+  const dot = document.createElement('span');
+  dot.className = 'pill-dot';
+  dot.style.animation = 'none';
+  dot.style.transform = 'none';
+
+  const txt = document.createElement('span');
+  const setText = () => { txt.textContent = chk.checked ? 'Smoothing: On' : 'Smoothing: Off'; };
+  setText();
+
+  // Put the hidden checkbox back inside the label (keeps native toggle/accessibility)
+  smoothLabel.append(dot, txt, chk);
+
+  // Reflect state with a class
+  const sync = () => smoothLabel.classList.toggle('on', chk.checked);
+  sync();
+
+  // Update visuals on change
+  chk.addEventListener('change', () => { setText(); sync(); });
+
+  // Drop it into the timeline legend and push to the right
+  timelineLegend.appendChild(smoothLabel);
+  smoothLabel.style.marginLeft = 'auto';
+}
+
 // --- Opponent code → Full team name ---
 const TEAM_NAMES = {
   ATL: 'Atlanta Hawks', BOS: 'Boston Celtics', BKN: 'Brooklyn Nets', CHA: 'Charlotte Hornets',
@@ -596,7 +634,7 @@ function renderBeeswarm() {
 
         // optional: start at random phase
         .style('animation-delay', () =>
-          `${(-Math.random()*0.6).toFixed(2)}s, ${(-Math.random()*0.6).toFixed(2)}s`
+          `${(-Math.random()*3).toFixed(2)}s, ${(-Math.random()*3).toFixed(2)}s`
         )
 
         .on('mouseenter', (evt, d) => {
