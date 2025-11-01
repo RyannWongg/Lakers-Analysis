@@ -14,7 +14,10 @@ const playerCards = [
   { name: 'Max Christie', file: 'max_christie.webp', firstName: 'Max' },
   { name: 'Gabe Vincent', file: 'gabe_vincent.webp', firstName: 'Gabe' },
   { name: 'Bronny James', file: 'bronny_james.webp', firstName: 'Bronny' },
-  { name: 'Luka Doncic', file: 'luka_doncic.webp', firstName: 'Luka' }
+  { name: 'Luka Doncic', file: 'luka_doncic.webp', firstName: 'Luka' },
+  { name: 'Cam Redish', file: 'cam_reddish.webp', firstName: 'Cam' },
+  { name: 'Maxwell Lewis', file: 'maxwell_lewis.webp', firstName: 'Maxwell' },
+  { name: 'Jalen Hood-Schifino', file: 'jalen_hood_schifino.webp', firstName: 'Jalen' }
 ];
 
 let currentPlayerIndex = 0; // Default to LeBron James
