@@ -363,7 +363,7 @@ const svgB = d3.select('#bars');
 
 const vb = svgB.node().viewBox.baseVal;
 // Adjusted margins to prevent overflow
-const mB = { top: 15, right: 15, bottom: 15, left: 115 };  // Increased left margin to show all labels
+const mB = { top: 15, right: 15, bottom: 55, left: 115 };  // Increased bottom margin for axis + caption spacing
 const WB = vb.width  - mB.left - mB.right;   // inner width
 const HB = vb.height - mB.top  - mB.bottom;  // inner height
 
@@ -372,7 +372,8 @@ const GRAPH_OFFSET = 0; // No offset needed now that we have proper left margin
 const xB = d3.scaleBand().range([GRAPH_OFFSET, WB]).padding(0.3);  // increased from 0.2 to 0.3
 const yB = d3.scaleLinear().range([HB, 0]);
 
-const xAxisB = gB.append('g').attr('transform', `translate(0,${HB - 10})`);
+// Raise the x-axis slightly so both tick labels and the caption sit fully inside the SVG
+const xAxisB = gB.append('g').attr('transform', `translate(0,${HB - 18})`);
 const yAxisB = gB.append('g');
 
 // Keep stacks vertical: snap x near center and compact y to avoid overlaps
@@ -451,7 +452,8 @@ function renderBeeswarm() {
     .attr('font-size', 12)
     // center under the inner plot area
     .attr('x', WB / 2)
-    .attr('y', HB + 20) // Positioned closer to tick labels, moved up with axis
+  // Move caption up so it no longer sits outside the viewBox (was HB + 20 with only 15px bottom margin)
+  .attr('y', HB + 32)
     .text('Opponents (teams the Lakers played against)');
   xAxisB.selectAll('path,line').attr('stroke','var(--grid)');
   yAxisB.selectAll('*').remove();

@@ -2,8 +2,8 @@
 
 // Player cards data with player IDs for stats lookup
 window.playerCards = [
-  { name: 'LeBron James', file: 'lebron_james.webp', firstName: 'LeBron', id: 'jamesle01' },
-  { name: 'Anthony Davis', file: 'anthony_davis.webp', firstName: 'Anthony', id: 'davisan02' },
+  { name: 'LeBron James', file: 'lebron_james.webp', firstName: 'LeBron', id: 'jamesle01', awards: ['MVP-6', 'CPOY-7', 'AS', 'NBA2'] },
+  { name: 'Anthony Davis', file: 'anthony_davis.webp', firstName: 'Anthony', id: 'davisan02', awards: ['AS'] },
   { name: 'Austin Reaves', file: 'austin_reaves.webp', firstName: 'Austin', id: 'reaveau01' },
   { name: "D'Angelo Russell", file: "d'angelo russell.webp", firstName: "D'Angelo", id: 'russeda01' },
   { name: 'Rui Hachimura', file: 'rui_hachimura.webp', firstName: 'Rui', id: 'hachiru01' },
@@ -17,6 +17,14 @@ window.playerCards = [
   { name: 'Maxwell Lewis', file: 'maxwell_lewis.webp', firstName: 'Maxwell', id: 'lewisma01' },
   { name: 'Jalen Hood-Schifino', file: 'jalen_hood_schifino.webp', firstName: 'Jalen', id: 'hoodja01' }
 ];
+
+// Award descriptions for tooltips
+window.awardDescriptions = {
+  'MVP-6': '6-time Most Valuable Player',
+  'CPOY-7': 'Top 7 Clutch Player of the Year',
+  'AS': 'All-Star Selection',
+  'NBA2': '2-time NBA Champion'
+};
 
 window.currentPlayerIndex = 0; // Default to LeBron James
 
@@ -66,6 +74,37 @@ function displayPlayerCard(index) {
   mainCardImg.src = `data/player_cards/${player.file}`;
   mainCardImg.alt = player.name;
   mainCardName.textContent = player.name;
+  
+  // Update awards display
+  displayPlayerAwards(index);
+}
+
+// Display player awards
+function displayPlayerAwards(index) {
+  const player = window.playerCards[index];
+  const awardsContainer = document.getElementById('player-awards');
+  
+  if (!awardsContainer) return;
+  
+  // Clear previous awards
+  awardsContainer.innerHTML = '';
+  
+  // Only show awards if player has them
+  if (!player.awards || player.awards.length === 0) {
+    awardsContainer.style.display = 'none';
+    return;
+  }
+  
+  awardsContainer.style.display = 'flex';
+  
+  // Create award badges
+  player.awards.forEach(award => {
+    const badge = document.createElement('div');
+    badge.className = 'award-badge';
+    badge.textContent = award;
+    badge.setAttribute('data-award-tooltip', window.awardDescriptions[award] || award);
+    awardsContainer.appendChild(badge);
+  });
 }
 
 // Switch to a different player with animation
