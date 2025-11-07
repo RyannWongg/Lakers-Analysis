@@ -123,7 +123,7 @@ function renderKPIs() {
 
 // =============== TIMELINE (FG% per game) ===============
 const svgT = d3.select('#timeline');
-const m = {top: 20, right: 16, bottom: 36, left: 46};
+const m = {top: 20, right: 40, bottom: 36, left: 46};
 const W = 900 - m.left - m.right;
 const H = 260 - m.top - m.bottom;
 const gT = svgT.append('g').attr('transform', `translate(${m.left},${m.top})`);
@@ -251,6 +251,65 @@ dots.selectAll('circle')
       .attr('cy', d => yT(d.fg))
   );
 
+  // --- Add annotations for notable games ---
+  // Find games with exceptional FG% (top 5% and bottom 5%)
+  const sortedByFG = [...f].filter(d => (d.makes + d.misses) >= 5).sort((a, b) => b.fg - a.fg);
+  const topGames = sortedByFG.slice(0, Math.min(3, Math.ceil(sortedByFG.length * 0.05)));
+  const bottomGames = sortedByFG.slice(-Math.min(3, Math.ceil(sortedByFG.length * 0.05)));
+  
+  gT.selectAll('.annotation-line,.annotation-label').remove();
+  
+  const notableGames = [...topGames, ...bottomGames];
+  
+  // Add annotation lines and labels
+  notableGames.forEach(game => {
+    const cx = xT(game.date);
+    const cy = yT(game.fg);
+    const isTop = topGames.includes(game);
+    
+    // Annotation line
+    gT.append('line')
+      .attr('class', 'annotation-line')
+      .attr('x1', cx)
+      .attr('x2', cx)
+      .attr('y1', cy)
+      .attr('y2', isTop ? cy - 30 : cy + 15)
+      .attr('stroke', isTop ? 'var(--good)' : 'var(--bad)')
+      .attr('stroke-width', 1)
+      .attr('stroke-dasharray', '2,2')
+      .attr('opacity', 0.6);
+    
+    // Annotation label with background for readability
+    const labelText = `${fmtPct(game.fg)} ${game.opponent}`;
+    const labelGroup = gT.append('g').attr('class', 'annotation-label');
+    
+    // Background rectangle for better readability
+    const tempText = gT.append('text')
+      .attr('font-size', 10)
+      .attr('font-weight', 700)
+      .text(labelText);
+    const bbox = tempText.node().getBBox();
+    tempText.remove();
+    
+    labelGroup.append('rect')
+      .attr('x', cx - bbox.width / 2 - 3)
+      .attr('y', (isTop ? cy - 40 : cy + 20) - bbox.height + 2)
+      .attr('width', bbox.width + 6)
+      .attr('height', bbox.height + 2)
+      .attr('fill', 'var(--panel)')
+      .attr('rx', 3);
+    
+    labelGroup.append('text')
+      .attr('x', cx)
+      .attr('y', isTop ? cy - 35 : cy + 25)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', 10)
+      .attr('fill', isTop ? 'var(--good)' : 'var(--bad)')
+      .attr('font-weight', 700)
+      .text(labelText)
+      .style('pointer-events', 'none');
+  });
+
   brushG.call(brush);
   if (state.range) brushG.call(brush.move, state.range.map(xT));
 
@@ -303,10 +362,10 @@ function renderDonut() {
 const svgB = d3.select('#bars');
 
 const vb = svgB.node().viewBox.baseVal;
-// Maximized margins: reduced all margins to fill available space
-const mB = { top: 10, right: 10, bottom: 35, left: 40 };  // Minimized margins to maximize graph area
-const WB = vb.width  - mB.left - mB.right;   // inner width (now much larger)
-const HB = vb.height - mB.top  - mB.bottom;  // inner height (now much larger)
+// Adjusted margins to prevent overflow
+const mB = { top: 15, right: 15, bottom: 15, left: 115 };  // Increased left margin to show all labels
+const WB = vb.width  - mB.left - mB.right;   // inner width
+const HB = vb.height - mB.top  - mB.bottom;  // inner height
 
 const gB = svgB.append('g').attr('transform', `translate(${mB.left},${mB.top})`);
 const GRAPH_OFFSET = 0; // No offset needed now that we have proper left margin
@@ -489,7 +548,7 @@ function renderBeeswarm() {
   }
 
   // === 1) Compute global vertical scale so the tallest stack fits ===
-  const HALF_AVAIL = HB / 2 - 10; // breathing room - reduced to use more vertical space
+  const HALF_AVAIL = HB / 2 - 25; // Increased breathing room to prevent overflow
   let worst = 0;
 
   for (const [opp, bySide] of grouped) {
@@ -536,18 +595,8 @@ function renderBeeswarm() {
     PAD_S  *= s2;
   }
 
-  // (optional) badge if compressed - position within graph area
+  // Remove compressed note display
   gB.selectAll('.compressed-note').remove();
-  if (s < 0.999 || worst2 > 0) {
-    gB.append('text')
-      .attr('class', 'compressed-note')
-      .attr('x', WB - 8)
-      .attr('y', 18)
-      .attr('text-anchor', 'end')
-      .attr('fill', 'var(--muted)')
-      .attr('font-size', 10)
-      .text('scaled to fit');
-  }
 
   // === 3) Now place dots, using final BASE_S / PAD_S / n.r ===
   for (const [opp, bySide] of grouped) {
@@ -794,12 +843,146 @@ function renderSummary() {
   `;
 }
 
+// ---- Calculate and render insights ----
+function renderInsights() {
+  const f = filtered();
+  const insightsEl = document.querySelector('#insights-grid');
+  
+  if (!insightsEl) return;
+  
+  if (f.length === 0) {
+    insightsEl.innerHTML = '';
+    return;
+  }
+  
+  // Calculate insights
+  const totalMakes = d3.sum(f, d => d.makes || 0);
+  const totalMisses = d3.sum(f, d => d.misses || 0);
+  const totalAttempts = totalMakes + totalMisses;
+  const overallFG = totalAttempts ? (totalMakes / totalAttempts) : 0;
+  
+  // Find best and worst games
+  const gamesWithFG = f.map(d => ({
+    ...d,
+    fg: (d.makes + d.misses) > 0 ? d.makes / (d.makes + d.misses) : 0
+  })).filter(d => (d.makes + d.misses) >= 5); // At least 5 attempts
+  
+  const bestGame = gamesWithFG.length > 0 
+    ? gamesWithFG.reduce((a, b) => a.fg > b.fg ? a : b)
+    : null;
+  const worstGame = gamesWithFG.length > 0
+    ? gamesWithFG.reduce((a, b) => a.fg < b.fg ? a : b)
+    : null;
+  
+  // Best opponent performance
+  const byOpponent = d3.rollups(
+    f,
+    v => {
+      const makes = d3.sum(v, d => d.makes || 0);
+      const misses = d3.sum(v, d => d.misses || 0);
+      const attempts = makes + misses;
+      return {
+        games: v.length,
+        makes,
+        misses,
+        attempts,
+        fg: attempts ? makes / attempts : 0
+      };
+    },
+    d => d.opponent
+  );
+  
+  const bestOpponent = byOpponent.length > 0
+    ? byOpponent.filter(([_, stats]) => stats.games >= 1)
+        .reduce((a, b) => a[1].fg > b[1].fg ? a : b)
+    : null;
+  
+  // Calculate trend (comparing first half vs second half)
+  let trend = '';
+  if (f.length >= 6) {
+    const mid = Math.floor(f.length / 2);
+    const firstHalf = f.slice(0, mid);
+    const secondHalf = f.slice(mid);
+    
+    const fhMakes = d3.sum(firstHalf, d => d.makes || 0);
+    const fhAtts = fhMakes + d3.sum(firstHalf, d => d.misses || 0);
+    const fhFG = fhAtts ? fhMakes / fhAtts : 0;
+    
+    const shMakes = d3.sum(secondHalf, d => d.makes || 0);
+    const shAtts = shMakes + d3.sum(secondHalf, d => d.misses || 0);
+    const shFG = shAtts ? shMakes / shAtts : 0;
+    
+    const change = ((shFG - fhFG) / fhFG * 100);
+    if (Math.abs(change) > 2) {
+      trend = change > 0 
+        ? `improving (+${change.toFixed(1)}%)`
+        : `declining (${change.toFixed(1)}%)`;
+    } else {
+      trend = 'stable';
+    }
+  }
+  
+  // Home vs Away split
+  const homeGames = f.filter(d => d.type === 'home');
+  const awayGames = f.filter(d => d.type === 'away');
+  const homeFG = homeGames.length > 0 
+    ? d3.sum(homeGames, d => d.makes) / (d3.sum(homeGames, d => d.makes + d.misses) || 1)
+    : 0;
+  const awayFG = awayGames.length > 0
+    ? d3.sum(awayGames, d => d.makes) / (d3.sum(awayGames, d => d.makes + d.misses) || 1)
+    : 0;
+  
+  // Render insight cards
+  const insights = [];
+  
+  if (bestGame) {
+    insights.push({
+      label: '🎯 Best Performance',
+      value: d3.format('.1%')(bestGame.fg),
+      detail: `vs ${TEAM_NAMES[bestGame.opponent] || bestGame.opponent}`
+    });
+  }
+  
+  if (worstGame && f.length > 1) {
+    insights.push({
+      label: '📉 Toughest Game',
+      value: d3.format('.1%')(worstGame.fg),
+      detail: `vs ${TEAM_NAMES[worstGame.opponent] || worstGame.opponent}`
+    });
+  }
+  
+  if (bestOpponent) {
+    insights.push({
+      label: '🏆 Best Matchup',
+      value: d3.format('.1%')(bestOpponent[1].fg),
+      detail: `vs ${TEAM_NAMES[bestOpponent[0]] || bestOpponent[0]} (${bestOpponent[1].games} game${bestOpponent[1].games > 1 ? 's' : ''})`
+    });
+  }
+  
+  if (homeGames.length > 0 && awayGames.length > 0) {
+    insights.push({
+      label: '🏠 Home vs Away',
+      value: d3.format('.1%')(homeFG),
+      detail: `Home: ${d3.format('.1%')(homeFG)} • Away: ${d3.format('.1%')(awayFG)}`
+    });
+  }
+  
+  insightsEl.innerHTML = insights.map(ins => `
+    <div class="insight-card">
+      <div class="insight-label">${ins.label}</div>
+      <div class="insight-value">${ins.value}</div>
+      <div class="insight-detail">${ins.detail}</div>
+    </div>
+  `).join('');
+}
+
 function renderAll() {
   renderTimeline();
   renderDonut();
   renderBeeswarm();
   renderKPIs();
   renderSummary();
+  renderInsights();
 }
 
 // ---- Data loader (use your CSV from /data) ----
