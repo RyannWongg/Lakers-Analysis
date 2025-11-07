@@ -20,10 +20,10 @@ window.playerCards = [
 
 // Award descriptions for tooltips
 window.awardDescriptions = {
-  'MVP-6': '6-time Most Valuable Player',
-  'CPOY-7': 'Top 7 Clutch Player of the Year',
+  'MVP-6': '6-Most Valuable Player',
+  'CPOY-7': '7-Clutch Player of the Year',
   'AS': 'All-Star Selection',
-  'NBA2': '2-time NBA Champion'
+  'NBA2': '2-All NBA Teams'
 };
 
 window.currentPlayerIndex = 0; // Default to LeBron James
