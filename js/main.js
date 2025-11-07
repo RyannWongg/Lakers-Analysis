@@ -2,28 +2,9 @@
 const parseDate  = d3.timeParse('%d/%m/%Y');
 let data = [];
 
-// Player cards data with player IDs for stats lookup
-const playerCards = [
-  { name: 'LeBron James', file: 'lebron_james.webp', firstName: 'LeBron', id: 'jamesle01' },
-  { name: 'Anthony Davis', file: 'anthony_davis.webp', firstName: 'Anthony', id: 'davisan02' },
-  { name: 'Austin Reaves', file: 'austin_reaves.webp', firstName: 'Austin', id: 'reaveau01' },
-  { name: "D'Angelo Russell", file: "d'angelo russell.webp", firstName: "D'Angelo", id: 'russeda01' },
-  { name: 'Rui Hachimura', file: 'rui_hachimura.webp', firstName: 'Rui', id: 'hachiru01' },
-  { name: 'Dalton Knecht', file: 'dalton_knecht.webp', firstName: 'Dalton', id: 'knechda01' },
-  { name: 'Jaxson Hayes', file: 'jaxson_hayes.webp', firstName: 'Jaxson', id: 'hayesja02' },
-  { name: 'Max Christie', file: 'max_christie.webp', firstName: 'Max', id: 'chrisma02' },
-  { name: 'Gabe Vincent', file: 'gabe_vincent.webp', firstName: 'Gabe', id: 'vincega01' },
-  { name: 'Bronny James', file: 'bronny_james.webp', firstName: 'Bronny', id: 'jamesbr02' },
-  { name: 'Luka Doncic', file: 'luka_doncic.webp', firstName: 'Luka', id: 'doncilu01' },
-  { name: 'Cam Redish', file: 'cam_reddish.webp', firstName: 'Cam', id: 'reddica01' },
-  { name: 'Maxwell Lewis', file: 'maxwell_lewis.webp', firstName: 'Maxwell', id: 'lewisma01' },
-  { name: 'Jalen Hood-Schifino', file: 'jalen_hood_schifino.webp', firstName: 'Jalen', id: 'hoodja01' }
-];
-
-// Store player stats per game: { gameNumber: { playerId: { stats } } }
-let playerStatsData = {};
-
-let currentPlayerIndex = 0; // Default to LeBron James
+// Expose data and state globally for other modules
+window.data = data;
+window.state = null;
 
 // =============== STATE & DOM ===============
 const state = {
@@ -32,6 +13,9 @@ const state = {
   range: null,
   smooth: false
 };
+
+// Expose state globally for other modules
+window.state = state;
 
 const $type = document.querySelector('#typeSel');
 const $opp = document.querySelector('#opponentSel');
@@ -329,7 +313,7 @@ const GRAPH_OFFSET = 0; // No offset needed now that we have proper left margin
 const xB = d3.scaleBand().range([GRAPH_OFFSET, WB]).padding(0.3);  // increased from 0.2 to 0.3
 const yB = d3.scaleLinear().range([HB, 0]);
 
-const xAxisB = gB.append('g').attr('transform', `translate(0,${HB})`);
+const xAxisB = gB.append('g').attr('transform', `translate(0,${HB - 10})`);
 const yAxisB = gB.append('g');
 
 // Keep stacks vertical: snap x near center and compact y to avoid overlaps
@@ -408,7 +392,7 @@ function renderBeeswarm() {
     .attr('font-size', 12)
     // center under the inner plot area
     .attr('x', WB / 2)
-    .attr('y', HB + 25) // Positioned within reduced bottom margin
+    .attr('y', HB + 20) // Positioned closer to tick labels, moved up with axis
     .text('Opponents (teams the Lakers played against)');
   xAxisB.selectAll('path,line').attr('stroke','var(--grid)');
   yAxisB.selectAll('*').remove();
@@ -700,9 +684,56 @@ function renderBeeswarm() {
     .attr('font-size', 15).attr('fill', 'var(--muted)')
     .text('small = 1');
 
+  // --- Add hover rectangles for each column to show game count ---
+  const tt = d3.select('#tt');
+  
+  // Calculate how many games were played against each opponent
+  const gamesPerOpponent = d3.rollup(
+    f,
+    v => v.length,
+    d => d.opponent
+  );
+
+  gB.selectAll('rect.column-hover')
+    .data(opponents)
+    .join('rect')
+      .attr('class', 'column-hover')
+      .attr('x', d => xB(d))
+      .attr('y', 0)
+      .attr('width', colBW)
+      .attr('height', HB)
+      .attr('fill', 'transparent')
+      .attr('cursor', 'pointer')
+      .on('mouseenter', (evt, opp) => {
+        const gameCount = gamesPerOpponent.get(opp) || 0;
+        const teamName = TEAM_NAMES[opp] || opp;
+        const oppData = byOpp.find(([o]) => o === opp)?.[1];
+        const fg = oppData && oppData.attempts ? (oppData.makes / oppData.attempts) : 0;
+        
+        // Highlight the column
+        d3.select(evt.currentTarget).attr('fill', 'rgba(253, 185, 39, 0.15)');
+        
+        tt.html(
+          `<b>${teamName}</b><br/>` +
+          `Games played: ${gameCount}<br/>` +
+          `FG%: ${d3.format('.1%')(fg)}<br/>` +
+          `Makes: ${oppData?.makes || 0} | Misses: ${oppData?.misses || 0}`
+        )
+        .style('left', (evt.clientX + 12) + 'px')
+        .style('top',  (evt.clientY + 12) + 'px')
+        .style('opacity', 1);
+      })
+      .on('mousemove', (evt) => {
+        tt.style('left', (evt.clientX + 12) + 'px')
+          .style('top',  (evt.clientY + 12) + 'px');
+      })
+      .on('mouseleave', (evt) => {
+        d3.select(evt.currentTarget).attr('fill', 'transparent');
+        tt.style('opacity', 0);
+      });
+
 
   // --- Draw dots ---
-  const tt = d3.select('#tt');
   gB.selectAll('circle.dot')
     .data(nodes, (d, i) => `${d.opponent}-${d.side}-${d.count}-${i}`)
     .join(
@@ -754,6 +785,7 @@ function renderSummary() {
   const fg = atts ? (makes/atts) : 0;
   const minutes = d3.mean(f, d => d.minutes) || 0;
   const el = document.querySelector('#summary');
+  if (!el) return; // Guard: summary container not present
   el.innerHTML = `
     <li>Games: ${f.length || '–'}</li>
     <li>FG%: ${(fg*100).toFixed(1)}%</li>
@@ -779,6 +811,7 @@ d3.text('./data/lakers_2024-2025_regular_season.csv').then(text => {
   const R = rows.slice(1);
 
   // find column indices (unique ones are straightforward)
+  const iRk   = H.indexOf('Rk');             // season game number 1..82
   const iDate = H.indexOf('Date');           // e.g., 22/10/2024  (dd/mm/yyyy)
   const iType = H.indexOf('Type');           // '' for home, '@' for away
   const iRslt = H.indexOf('Rslt');           // W/L
@@ -792,7 +825,7 @@ d3.text('./data/lakers_2024-2025_regular_season.csv').then(text => {
   const iOppCode = oppIdxs.find(i => i > iType && i < iRslt);
   const iOppPts  = oppIdxs.find(i => i > iTm);
 
-  if ([iDate,iType,iRslt,iTm,iFG,iFGA,iOppCode,iOppPts].some(i => i < 0)) {
+  if ([iRk,iDate,iType,iRslt,iTm,iFG,iFGA,iOppCode,iOppPts].some(i => i < 0)) {
     console.warn('Header detection failed. Headers were:', H);
   }
 
@@ -804,7 +837,9 @@ d3.text('./data/lakers_2024-2025_regular_season.csv').then(text => {
     const dt = parseDate(dateStr);                 // you already set: d3.timeParse('%d/%m/%Y')
     if (!dt || isNaN(+dt)) continue;
 
-    const makes    = +row[iFG]  || 0;
+  const rkRaw    = row[iRk];
+  const rk       = rkRaw != null && rkRaw !== '' ? +rkRaw : NaN; // expected 1..82
+  const makes    = +row[iFG]  || 0;
     const attempts = +row[iFGA] || 0;
     const misses   = Math.max(0, attempts - makes);
     const fg       = attempts ? makes / attempts : 0;
@@ -818,6 +853,7 @@ d3.text('./data/lakers_2024-2025_regular_season.csv').then(text => {
     const site    = siteRaw === '@' ? 'away' : 'home';
 
     out.push({
+      gameNumber: isFinite(rk) ? rk : (out.length + 1), // prefer Rk, fallback to row order
       date: dt,
       opponent: (row[iOppCode] || 'UNK').toString().trim(), // e.g., MIN/PHO/SAC
       type: site,                  // 'home' | 'away'
@@ -831,11 +867,12 @@ d3.text('./data/lakers_2024-2025_regular_season.csv').then(text => {
   }
 
   data = out;
+  window.data = data; // Update global reference
   console.log('Loaded rows:', data.length);
   console.table(data.slice(0,5));
   populateOpponents();
   
-  // Load player stats from all 82 games
+  // Initialize player cards and stats (from separate modules)
   initPlayerCards();
   renderAll();
   renderPlayerStats(); // Initial render (will show loading state)
@@ -849,383 +886,3 @@ d3.text('./data/lakers_2024-2025_regular_season.csv').then(text => {
   });
 
 }).catch(err => console.error('CSV text load error:', err));
-
-// =============== PLAYER CARDS ===============
-function initPlayerCards() {
-  const mainCard = document.getElementById('main-card');
-  const mainCardImg = document.getElementById('main-card-img');
-  const mainCardName = document.getElementById('main-card-name');
-  const cardStack = document.getElementById('card-stack');
-  
-  // Display default card (LeBron James)
-  displayPlayerCard(currentPlayerIndex);
-  
-  // Create stacked cards for all other players
-  playerCards.forEach((player, index) => {
-    if (index === currentPlayerIndex) return; // Skip the current player
-    
-    const stackCard = document.createElement('div');
-    stackCard.className = 'stacked-card';
-    stackCard.dataset.index = index;
-    
-    const img = document.createElement('img');
-    img.src = `data/player_cards/${player.file}`;
-    img.alt = player.name;
-    
-    const nameLabel = document.createElement('div');
-    nameLabel.className = 'stack-name';
-    nameLabel.textContent = player.firstName;
-    
-    stackCard.appendChild(img);
-    stackCard.appendChild(nameLabel);
-    
-    stackCard.addEventListener('click', () => {
-      switchPlayer(index);
-    });
-    
-    cardStack.appendChild(stackCard);
-  });
-}
-
-function displayPlayerCard(index) {
-  const player = playerCards[index];
-  const mainCardImg = document.getElementById('main-card-img');
-  const mainCardName = document.getElementById('main-card-name');
-  
-  mainCardImg.src = `data/player_cards/${player.file}`;
-  mainCardImg.alt = player.name;
-  mainCardName.textContent = player.name;
-}
-
-function switchPlayer(newIndex) {
-  if (newIndex === currentPlayerIndex) return;
-  
-  const mainCard = document.getElementById('main-card');
-  
-  // Smooth animation
-  mainCard.style.transform = 'scale(0.9) rotateY(90deg)';
-  mainCard.style.opacity = '0.5';
-  
-  setTimeout(() => {
-    currentPlayerIndex = newIndex;
-    displayPlayerCard(newIndex);
-    
-    // Rebuild the stack
-    const cardStack = document.getElementById('card-stack');
-    cardStack.innerHTML = '';
-    
-    playerCards.forEach((player, index) => {
-      if (index === currentPlayerIndex) return;
-      
-      const stackCard = document.createElement('div');
-      stackCard.className = 'stacked-card';
-      stackCard.dataset.index = index;
-      
-      const img = document.createElement('img');
-      img.src = `data/player_cards/${player.file}`;
-      img.alt = player.name;
-      
-      const nameLabel = document.createElement('div');
-      nameLabel.className = 'stack-name';
-      nameLabel.textContent = player.firstName;
-      
-      stackCard.appendChild(img);
-      stackCard.appendChild(nameLabel);
-      
-      stackCard.addEventListener('click', () => {
-        switchPlayer(index);
-      });
-      
-      cardStack.appendChild(stackCard);
-    });
-    
-    // Animate back
-    mainCard.style.transform = 'scale(1) rotateY(0deg)';
-    mainCard.style.opacity = '1';
-    
-    // Update player stats when player changes
-    renderPlayerStats();
-  }, 200);
-}
-
-// =============== PLAYER STATS ===============
-// Load all 82 game CSV files
-async function loadPlayerStats() {
-  try {
-    const gamePromises = [];
-    for (let i = 1; i <= 82; i++) {
-      gamePromises.push(
-        d3.text(`./data/2024-2025_reg_per_game/${i}.csv`)
-          .then(text => ({ gameNum: i, data: text }))
-          .catch(err => {
-            console.warn(`Failed to load game ${i}:`, err);
-            return { gameNum: i, data: null };
-          })
-      );
-    }
-    
-    const results = await Promise.all(gamePromises);
-    
-    let loadedCount = 0;
-    
-    // Parse each game's CSV
-    results.forEach(({ gameNum, data }) => {
-      if (!data) {
-        console.warn(`No data for game ${gameNum}`);
-        return;
-      }
-      
-      try {
-        const rows = d3.csvParseRows(data);
-        if (rows.length < 2) {
-          console.warn(`Game ${gameNum} has insufficient rows:`, rows.length);
-          return;
-        }
-        
-        const headers = rows[0].map(h => h.trim());
-        const playerIdIdx = headers.length - 1; // Last column is player ID
-        
-        if (!playerStatsData[gameNum]) {
-          playerStatsData[gameNum] = {};
-        }
-        
-        // Parse each player row
-        for (let i = 1; i < rows.length; i++) {
-          const row = rows[i];
-          if (row.length < headers.length) continue;
-          
-          const playerId = row[playerIdIdx]?.trim();
-          if (!playerId || playerId === '-9999') continue;
-          
-          // Parse stats
-          const parseStat = (idx) => {
-            const val = row[idx]?.trim();
-            if (!val || val === '') return null;
-            // Handle percentages (e.g., ".478")
-            if (val.startsWith('.')) return parseFloat(val);
-            // Handle regular numbers
-            const num = parseFloat(val);
-            return isNaN(num) ? null : num;
-          };
-          
-          const getColIdx = (name) => headers.indexOf(name);
-          
-          playerStatsData[gameNum][playerId] = {
-            FG: parseStat(getColIdx('FG')) || 0,
-            FGA: parseStat(getColIdx('FGA')) || 0,
-            'FG%': parseStat(getColIdx('FG%')),
-            '3P': parseStat(getColIdx('3P')) || 0,
-            '3PA': parseStat(getColIdx('3PA')) || 0,
-            '3P%': parseStat(getColIdx('3P%')),
-            FT: parseStat(getColIdx('FT')) || 0,
-            FTA: parseStat(getColIdx('FTA')) || 0,
-            'FT%': parseStat(getColIdx('FT%')),
-            PTS: parseStat(getColIdx('PTS')) || 0,
-            TRB: parseStat(getColIdx('TRB')) || 0,
-            AST: parseStat(getColIdx('AST')) || 0,
-            BLK: parseStat(getColIdx('BLK')) || 0
-          };
-        }
-        
-        loadedCount++;
-      } catch (parseErr) {
-        console.error(`Error parsing game ${gameNum}:`, parseErr);
-      }
-    });
-    
-    console.log('Loaded player stats for', loadedCount, 'games out of', results.length);
-    console.log('Total games in playerStatsData:', Object.keys(playerStatsData).length);
-    
-    return loadedCount;
-  } catch (error) {
-    console.error('Error in loadPlayerStats:', error);
-    throw error;
-  }
-}
-
-// Get games within the brush range
-function getGamesInRange() {
-  if (!state.range) {
-    // No brush selection - return all games
-    return Array.from({ length: 82 }, (_, i) => i + 1);
-  }
-  
-  const [startDate, endDate] = state.range;
-  const gamesInRange = [];
-  
-  // Match dates from team data to game numbers
-  // Sort by date to ensure correct game number mapping
-  const sortedData = data.slice().sort((a, b) => a.date - b.date);
-  sortedData.forEach((game, idx) => {
-    // Check if date is within brush range (inclusive)
-    if (game.date >= startDate && game.date <= endDate) {
-      gamesInRange.push(idx + 1); // Game numbers are 1-indexed
-    }
-  });
-  
-  return gamesInRange;
-}
-
-// Calculate average stats for a player across selected games
-function calculatePlayerStats(playerId, gameNumbers) {
-  const stats = {
-    'FG%': 0, '3P%': 0, 'FT%': 0, PTS: 0, TRB: 0, AST: 0, BLK: 0,
-    gamesPlayed: 0
-  };
-  
-  let totalFG = 0, totalFGA = 0;
-  let total3P = 0, total3PA = 0;
-  let totalFT = 0, totalFTA = 0;
-  let totalPTS = 0;
-  let totalTRB = 0, totalAST = 0, totalBLK = 0;
-  
-  gameNumbers.forEach(gameNum => {
-    const gameStats = playerStatsData[gameNum]?.[playerId];
-    if (!gameStats) return;
-    
-    stats.gamesPlayed++;
-    totalFG += gameStats.FG || 0;
-    totalFGA += gameStats.FGA || 0;
-    total3P += gameStats['3P'] || 0;
-    total3PA += gameStats['3PA'] || 0;
-    totalFT += gameStats.FT || 0;
-    totalFTA += gameStats.FTA || 0;
-    totalPTS += gameStats.PTS || 0;
-    totalTRB += gameStats.TRB || 0;
-    totalAST += gameStats.AST || 0;
-    totalBLK += gameStats.BLK || 0;
-  });
-  
-  if (stats.gamesPlayed === 0) return stats;
-  
-  // Calculate percentages
-  stats['FG%'] = totalFGA > 0 ? totalFG / totalFGA : 0;
-  stats['3P%'] = total3PA > 0 ? total3P / total3PA : 0;
-  stats['FT%'] = totalFTA > 0 ? totalFT / totalFTA : 0;
-  
-  // Calculate averages per game
-  stats.PTS = totalPTS / stats.gamesPlayed;
-  stats.TRB = totalTRB / stats.gamesPlayed;
-  stats.AST = totalAST / stats.gamesPlayed;
-  stats.BLK = totalBLK / stats.gamesPlayed;
-  
-  return stats;
-}
-
-// Render player stats display
-function renderPlayerStats() {
-  const statsSection = document.getElementById('player-stats-section');
-  if (!statsSection) {
-    console.warn('player-stats-section element not found');
-    return;
-  }
-  
-  const currentPlayer = playerCards[currentPlayerIndex];
-  if (!currentPlayer) {
-    console.warn('Current player not found');
-    return;
-  }
-  
-  // Check if data is still loading (show loading state only if no games loaded yet)
-  const gamesLoaded = Object.keys(playerStatsData).length;
-  if (gamesLoaded === 0) {
-    statsSection.innerHTML = `
-      <div class="player-stats-header">
-        <div class="games-played">
-          <div class="games-played-label">Games Played: <span class="games-played-number">Loading...</span></div>
-        </div>
-      </div>
-      <div class="player-stats-grid">
-        <div class="stat-item">
-          <div class="stat-label">FG%</div>
-          <div class="stat-value">–</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">3P%</div>
-          <div class="stat-value">–</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">FT%</div>
-          <div class="stat-value">–</div>
-        </div>
-        <div class="stat-item stat-item-pts" style="grid-row: 1 / 3; grid-column: 4;">
-          <div class="stat-label">PTS</div>
-          <div class="stat-value">–</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">BLK</div>
-          <div class="stat-value">–</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">TRB</div>
-          <div class="stat-value">–</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">AST</div>
-          <div class="stat-value">–</div>
-        </div>
-      </div>
-    `;
-    return;
-  }
-  
-  const gameNumbers = getGamesInRange();
-  const playerStats = calculatePlayerStats(currentPlayer.id, gameNumbers);
-  
-  const fmtPct = d3.format('.1%');
-  const fmtNum = d3.format('.1f');
-  
-  // Count how many games in the selected range the player actually played
-  // The calculatePlayerStats function already counts games where playerStatsData[gameNum]?.[playerId] exists
-  // which means the player's name/ID was found in that game's CSV (they played)
-  const totalGamesInRange = gameNumbers.length;
-  const playerGamesInRange = playerStats.gamesPlayed;
-  
-  // Display format: show "X / Y" when brush is selected, or just "X" when showing all games
-  let displayText;
-  if (state.range && totalGamesInRange > 0) {
-    // Brush is selected - show "X / Y" format
-    displayText = `${playerGamesInRange} / ${totalGamesInRange}`;
-  } else {
-    // No brush or no games - show total games player played
-    displayText = `${playerGamesInRange || 0}`;
-  }
-  
-  statsSection.innerHTML = `
-    <div class="player-stats-header">
-      <div class="games-played">
-        <div class="games-played-label">Games Played: <span class="games-played-number">${displayText}</span></div>
-      </div>
-    </div>
-    <div class="player-stats-grid">
-      <div class="stat-item">
-        <div class="stat-label">FG%</div>
-        <div class="stat-value">${playerStats.gamesPlayed > 0 ? fmtPct(playerStats['FG%']) : '–'}</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">3P%</div>
-        <div class="stat-value">${playerStats.gamesPlayed > 0 ? fmtPct(playerStats['3P%']) : '–'}</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">FT%</div>
-        <div class="stat-value">${playerStats.gamesPlayed > 0 ? fmtPct(playerStats['FT%']) : '–'}</div>
-      </div>
-      <div class="stat-item stat-item-pts" style="grid-row: 1 / 3; grid-column: 4;">
-        <div class="stat-label">PTS</div>
-        <div class="stat-value">${playerStats.gamesPlayed > 0 ? fmtNum(playerStats.PTS) : '–'}</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">BLK</div>
-        <div class="stat-value">${playerStats.gamesPlayed > 0 ? fmtNum(playerStats.BLK) : '–'}</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">TRB</div>
-        <div class="stat-value">${playerStats.gamesPlayed > 0 ? fmtNum(playerStats.TRB) : '–'}</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">AST</div>
-        <div class="stat-value">${playerStats.gamesPlayed > 0 ? fmtNum(playerStats.AST) : '–'}</div>
-      </div>
-    </div>
-  `;
-}
