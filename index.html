@@ -10,7 +10,7 @@
   <div class="app">
     <header>
       <div>
-        <h1>Los Angeles Lakers Season 2024-25 Game Efficiency Explorer</h1>
+  <h1><img src="data/logo.webp" alt="Lakers" class="lakers-logo-icon" /> Los Angeles Lakers Season 2024-25 Game Efficiency Explorer</h1>
         <div class="sub">Interactive, multi-view summary of makes, misses, attempts & FG% over time for the Los Angeles Lakers (Data Source: <a href="https://www.basketballreference.com">basketballreference.com</a>).</div>
       </div>
       <div class="controls panel">
@@ -40,7 +40,7 @@
 
     <!-- Key Insights Panel -->
     <section class="panel key-insights" id="key-insights">
-      <h3 class="insights-title">📊 Key Insights</h3>
+      <h3 class="insights-title">🏀 Key Insights</h3>
       <div class="insights-grid" id="insights-grid">
         <!-- Dynamic insights will be added here -->
       </div>
@@ -53,6 +53,7 @@
           <div class="legend" style="margin-bottom:8px">
             <span class="sw" style="background:var(--good)"></span> Makes
             <span class="sw" style="background:var(--bad)"></span> Misses
+            <span class="range-display" id="beeswarm-range">Date: All games</span>
           </div>
           <svg id="bars" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid meet"></svg>
         </div>
@@ -61,6 +62,7 @@
           <div class="legend" style="margin-bottom:8px">
             <span class="sw" style="background:var(--accent)"></span> FG% per game
             <span class="sw" style="background:var(--accent2)"></span> Smoothed (toggle)
+            <span class="range-display" id="timeline-range">Date: All games</span>
           </div>
           <svg id="timeline" viewBox="0 0 900 260" preserveAspectRatio="xMidYMid meet"></svg>
         </div>

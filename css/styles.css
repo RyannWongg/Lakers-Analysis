@@ -35,6 +35,14 @@ body {
 
 header { display:flex; align-items:baseline; justify-content:space-between; gap: 8px; }
 h1 { font-size: 18px; margin: 0; letter-spacing: 0.3px; }
+.lakers-logo-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: inline-block;
+  vertical-align: -6px;
+  margin-right: 8px;
+}
 .sub { color: var(--muted); font-size: 12px; }
 
 .row { display: grid; grid-template-columns: 1fr; gap: 16px; }
@@ -54,8 +62,29 @@ h1 { font-size: 18px; margin: 0; letter-spacing: 0.3px; }
 .kpi .val { font-size:20px; font-weight:700; }
 
 .chart-wrap { position: relative; }
-.legend { display:flex; gap:8px; align-items:center; font-size:11px; color:var(--muted); margin-bottom: 4px; }
+.legend { 
+  display:flex; 
+  gap:8px; 
+  align-items:center; 
+  font-size:11px; 
+  color:var(--muted); 
+  margin-bottom: 4px; 
+}
 .legend .sw { width:10px; height:10px; border-radius:3px; display:inline-block; }
+.range-display {
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  background: #0e1218;
+  border: 1px solid #262b36;
+  padding: 5px 10px;
+  border-radius: 8px;
+  color: var(--muted);
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 8px;
+  box-shadow: 0 0 0 1px rgba(212,175,55,0.25) inset;
+}
 
 .tooltip { position: fixed; pointer-events:none; background:#0e1218; color:var(--ink); font-size:12px; padding:8px 10px; border:1px solid var(--gold); border-radius:10px; opacity:0; transition: opacity 0.12s ease-out; white-space:nowrap; }
 
@@ -567,6 +596,8 @@ a:hover { text-decoration: underline; }
 .key-insights {
   margin-bottom: 8px;
   padding: 12px 16px;
+  border: 3px solid var(--gold);
+  box-shadow: 0 0 0 1px rgba(212,175,55,0.18) inset;
 }
 
 .insights-title {

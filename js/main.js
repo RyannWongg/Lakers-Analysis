@@ -137,11 +137,37 @@ const yAxisT = gT.append('g').attr('class', 'y-axis');
 
 const grid = gT.append('g').attr('class', 'grid');
 const line = gT.append('path').attr('fill', 'none').attr('stroke', 'var(--accent)').attr('stroke-width', 2);
-const lineSmooth = gT.append('path').attr('fill', 'none').attr('stroke', 'var(--accent2)').attr('stroke-width', 2).attr('opacity', 0);
+// Smoothed moving-average line (will be animated when enabled)
+const lineSmooth = gT.append('path')
+  .attr('class', 'timeline-smooth')
+  .attr('fill', 'none')
+  .attr('stroke', 'var(--accent2)')
+  .attr('stroke-width', 2)
+  .attr('opacity', 0);
 const dots = gT.append('g');
 
 const brush = d3.brushX().extent([[0,0],[W,H]]).on('brush end', brushed);
 const brushG = gT.append('g').attr('class', 'brush').call(brush);
+
+// --- Date range display helpers ---
+function formatRange(d0, d1) {
+  const fmt = d3.timeFormat('%b %d, %Y');
+  if (!d0 || !d1) return 'All games';
+  if (d0.getTime() === d1.getTime()) return fmt(d0);
+  return fmt(d0) + ' – ' + fmt(d1);
+}
+function updateRangeDisplays() {
+  const allDates = data.map(d => d.date).sort((a,b) => a - b);
+  if (!allDates.length) return;
+  const fullStart = allDates[0];
+  const fullEnd   = allDates[allDates.length - 1];
+  const [start, end] = state.range ? state.range : [fullStart, fullEnd];
+  const txt = 'Date: ' + formatRange(start, end);
+  const elTimeline = document.getElementById('timeline-range');
+  const elBeeswarm = document.getElementById('beeswarm-range');
+  if (elTimeline) elTimeline.textContent = txt;
+  if (elBeeswarm) elBeeswarm.textContent = txt;
+}
 
 function renderTimeline() {
   const fAll = data.filter(d => (state.type === 'all' || d.type === state.type)
@@ -216,7 +242,38 @@ function renderTimeline() {
     const window = f.slice(s, e);
     return {date: d.date, fg: d3.mean(window, w => w.fg)};
   });
-  lineSmooth.attr('d', lGen(sm)).attr('opacity', state.smooth ? 1 : 0);
+  // Handle smoothing animation
+  lineSmooth.attr('d', lGen(sm));
+  const originalOpacityTarget = state.smooth ? 0.35 : 1;
+  line.transition().duration(500).ease(d3.easeCubicOut).attr('opacity', originalOpacityTarget);
+
+  if (state.smooth) {
+    // Animate the smooth line drawing if just turned on
+    const len = lineSmooth.node().getTotalLength();
+    // If currently hidden (opacity 0), set up stroke-dash animation
+    if (+lineSmooth.attr('opacity') === 0) {
+      lineSmooth
+        .attr('stroke-dasharray', len + ' ' + len)
+        .attr('stroke-dashoffset', len)
+        .attr('opacity', 1)
+        .transition()
+          .duration(750)
+          .ease(d3.easeCubicOut)
+          .attr('stroke-dashoffset', 0);
+    } else {
+      // Already visible; just ensure opacity 1
+      lineSmooth.transition().duration(400).attr('opacity', 1);
+    }
+  } else {
+    // Turn smoothing off: fade out line smoothly and reset dash props
+    lineSmooth.transition()
+      .duration(400)
+      .ease(d3.easeCubicOut)
+      .attr('opacity', 0)
+      .on('end', () => {
+        lineSmooth.attr('stroke-dasharray', null).attr('stroke-dashoffset', null);
+      });
+  }
 
   const tt = d3.select('#tt');
   const fmtPct = d3.format('.1%');
@@ -317,6 +374,7 @@ dots.selectAll('circle')
   renderBeeswarm();
   renderKPIs();
   renderSummary();
+  updateRangeDisplays();
 }
 
 function brushed(event) {
@@ -327,6 +385,7 @@ function brushed(event) {
   renderKPIs();
   renderSummary();
   renderPlayerStats(); // Update player stats when brush changes
+  updateRangeDisplays();
 }
 
 // =============== DONUT (Makes vs Misses) ===============
@@ -421,8 +480,11 @@ function renderBeeswarm() {
 
   xAxisB.call(d3.axisBottom(xB)
     .tickSizeOuter(0))  // Remove outer ticks for cleaner look
-    .selectAll('text')
+  // Enlarge horizontal opponent team labels (tick text) and keep hover handlers
+  xAxisB.selectAll('text')
+    .attr('font-size', 14)
     .attr('fill','var(--muted)')
+    .attr('font-weight', 600)
     .style('cursor','default')
     .on('mouseenter', (evt, code) => {
       const tt = d3.select('#tt');
@@ -449,7 +511,7 @@ function renderBeeswarm() {
     .attr('class', 'x-axisB-label')
     .attr('text-anchor', 'middle')
     .attr('fill', 'var(--muted)')
-    .attr('font-size', 12)
+  .attr('font-size', 14)
     // center under the inner plot area
     .attr('x', WB / 2)
   // Move caption up so it no longer sits outside the viewBox (was HB + 20 with only 15px bottom margin)
@@ -482,7 +544,7 @@ function renderBeeswarm() {
   // === Overall FG% + left labels ===
   // Position legends within the reduced left margin area
   const FG_LEFT_X = -25;     // Adjusted to fit within smaller left margin
-  const LINE_H    = 18;      // tspans line height (increased from 14 to 18 for more spacing)
+  const LINE_H    = 22;      // tspans line height (increased for more spacing)
   
   // Position FG% label and value centered on the midline (horizontal axis)
   const FG_CAP_DY = -3;      // caption "FG%" slightly above midline
@@ -491,7 +553,7 @@ function renderBeeswarm() {
   // Calculate symmetric spacing: both legends should have equal distance from midline
   // Each legend has 4 lines: 3 size descriptions + 1 label
   const LEGEND_BLOCK_HEIGHT = LINE_H * 3; // height for the 3 size description lines
-  const LEGEND_GAP = 25; // spacing from midline to nearest label
+  const LEGEND_GAP = 36; // spacing from midline to nearest label (more breathing room)
   
   // Start y for the top block ("big=25", "med=5", "small=1", "Makes")
   // The "Makes" label should be at the same distance from midline as "Misses"
@@ -499,7 +561,7 @@ function renderBeeswarm() {
   
   // Start y for the bottom block ("Misses", "big=25", "med=5", "small=1")
   // Move Misses legend 7 pixels lower
-  const MISS_Y = LEGEND_GAP + 7;  // Spacing from midline + 7px lower
+  const MISS_Y = LEGEND_GAP + 10;  // Spacing from midline + a bit lower
 
   // --- Build nodes (three sizes: 25, 5, and 1) ---
   let nodes = [];
@@ -688,24 +750,24 @@ function renderBeeswarm() {
 
   makeBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 15).attr('fill', 'var(--muted)')
+    .attr('font-size', 20).attr('fill', 'var(--muted)')
     .text('big = 25');
 
   makeBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 15).attr('fill', 'var(--muted)')
+    .attr('font-size', 20).attr('fill', 'var(--muted)')
     .text('med = 5');
 
   makeBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 15).attr('fill', 'var(--muted)')
+    .attr('font-size', 20).attr('fill', 'var(--muted)')
     .text('small = 1');
 
   makeBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 16).attr('fill', 'var(--good)')
-    .attr('font-weight', 600)
-    .text('Makes');
+    .attr('font-size', 21.5).attr('fill', 'var(--good)')
+    .attr('font-weight', 800)
+  .text('Makes basket');
 
   // --- LEFT multi-line "Misses" block (four lines) ---
   const missBlock = gB.append('text')
@@ -716,23 +778,23 @@ function renderBeeswarm() {
 
   missBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', 0)
-    .attr('font-size', 16).attr('fill', 'var(--bad)')
-    .attr('font-weight', 600)
-    .text('Misses');
+    .attr('font-size', 21.5).attr('fill', 'var(--bad)')
+    .attr('font-weight', 800)
+  .text('Misses basket');
 
   missBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 15).attr('fill', 'var(--muted)')
+    .attr('font-size', 20).attr('fill', 'var(--muted)')
     .text('big = 25');
 
   missBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 15).attr('fill', 'var(--muted)')
+    .attr('font-size', 20).attr('fill', 'var(--muted)')
     .text('med = 5');
 
   missBlock.append('tspan')
     .attr('x', FG_LEFT_X).attr('dy', LINE_H)
-    .attr('font-size', 15).attr('fill', 'var(--muted)')
+    .attr('font-size', 20).attr('fill', 'var(--muted)')
     .text('small = 1');
 
   // --- Add hover rectangles for each column to show game count ---
@@ -768,7 +830,7 @@ function renderBeeswarm() {
           `<b>${teamName}</b><br/>` +
           `Games played: ${gameCount}<br/>` +
           `FG%: ${d3.format('.1%')(fg)}<br/>` +
-          `Makes: ${oppData?.makes || 0} | Misses: ${oppData?.misses || 0}`
+          `Makes basket: ${oppData?.makes || 0} | Misses basket: ${oppData?.misses || 0}`
         )
         .style('left', (evt.clientX + 12) + 'px')
         .style('top',  (evt.clientY + 12) + 'px')
@@ -814,7 +876,7 @@ function renderBeeswarm() {
         .on('mouseenter', (evt, d) => {
           tt.html(
             `<b>${d.opponent}</b><br/>` +
-            `${d.side === 'make' ? 'Makes' : 'Misses'}: ${d.count}`
+            `${d.side === 'make' ? 'Makes basket' : 'Misses basket'}: ${d.count}`
           )
           .style('left', (evt.clientX + 12) + 'px')
           .style('top',  (evt.clientY + 12) + 'px')
