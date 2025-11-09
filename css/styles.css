@@ -173,13 +173,15 @@ a:hover { text-decoration: underline; }
 
 /* Right panel specific styles */
 .right-panel {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  /* Keep balanced but not overly tall */
+  display: grid;
+  grid-template-rows: 400px auto auto; /* card area, awards, stats */
+  align-items: start;
+  justify-items: center;
   overflow-y: auto;
   padding: 12px;
-  height: 82%;
+  min-height: 0;
+  height: auto;
 }
 
 /* Player Card Styles */
@@ -296,8 +298,9 @@ a:hover { text-decoration: underline; }
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 10px;
-  margin: -100px auto -10% auto;
+  gap: 8px;
+  /* Keep modest spacing so hovers don't collide with the card */
+  margin: 14px auto 8px auto;
   padding: 0;
   width: 90%;
   max-width: 400px;
@@ -306,14 +309,14 @@ a:hover { text-decoration: underline; }
 
 .award-badge {
   position: relative;
-  padding: 4px 8px;
+  padding: clamp(2px, 0.5vw, 5px) clamp(6px, 1vw, 10px);
   background: linear-gradient(135deg, 
     rgba(253, 185, 39, 0.15) 0%, 
     rgba(85, 37, 131, 0.15) 50%, 
     rgba(253, 185, 39, 0.15) 100%);
   border: 2px solid transparent;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: clamp(10px, 0.9vw, 12px);
   font-weight: 700;
   color: #FDB927;
   text-transform: uppercase;
@@ -321,9 +324,9 @@ a:hover { text-decoration: underline; }
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 
-    0 0 10px rgba(253, 185, 39, 0.3),
-    0 0 20px rgba(253, 185, 39, 0.2),
-    inset 0 0 10px rgba(253, 185, 39, 0.1);
+    0 0 8px rgba(253, 185, 39, 0.22),
+    0 0 16px rgba(253, 185, 39, 0.16),
+    inset 0 0 8px rgba(253, 185, 39, 0.08);
   background-clip: padding-box;
   backdrop-filter: blur(10px);
 }
@@ -355,25 +358,27 @@ a:hover { text-decoration: underline; }
 }
 
 .award-badge:hover {
-  transform: translateY(-3px) scale(1.05);
+  /* Avoid upward movement toward the card */
+  transform: scale(1.04);
   box-shadow: 
-    0 0 15px rgba(253, 185, 39, 0.5),
-    0 0 30px rgba(253, 185, 39, 0.3),
+    0 0 12px rgba(253, 185, 39, 0.4),
+    0 0 22px rgba(253, 185, 39, 0.25),
     0 8px 16px rgba(0, 0, 0, 0.3),
-    inset 0 0 15px rgba(253, 185, 39, 0.2);
+    inset 0 0 12px rgba(253, 185, 39, 0.16);
 }
 
 .award-badge::after {
   content: attr(data-award-tooltip);
   position: absolute;
-  bottom: 100%;
+  /* Place tooltip below the badge to avoid overlapping the card area */
+  top: 100%;
   left: 50%;
-  transform: translateX(-50%) translateY(-8px);
+  transform: translateX(-50%) translateY(6px);
   background: #552583;
   color: #FDB927;
   padding: 6px 10px;
   border-radius: 6px;
-  font-size: 11px;
+  font-size: clamp(10px, 0.9vw, 11px);
   font-weight: 600;
   white-space: nowrap;
   opacity: 0;
@@ -386,22 +391,26 @@ a:hover { text-decoration: underline; }
 
 .award-badge:hover::after {
   opacity: 1;
-  transform: translateX(-50%) translateY(-12px);
+  transform: translateX(-50%) translateY(8px);
 }
 
 #player-stats-section {
-  margin: -80px auto 20px auto;
-  padding: 5px;
+  /* Compact, avoids overgrowing. Keep close to awards, but leave room for tooltip below badges */
+  margin: clamp(6px, 0.8vw, 12px) auto 20px auto;
+  padding: clamp(6px, 1vw, 10px);
   width: 100%;
-  max-width: 400px;
+  max-width: clamp(420px, 48vw, 560px);
   background: var(--panel);
   border: 1px solid #1f2430;
   border-radius: 10px;
-  min-height: 200px;
+  min-height: 220px;
+  height: auto;
   box-sizing: border-box;
   position: relative;
   z-index: 1;
   clear: both;
+  display: flex;
+  flex-direction: column;
 }
 
 .player-stats-header {
