@@ -175,13 +175,14 @@ a:hover { text-decoration: underline; }
 .right-panel {
   /* Keep balanced but not overly tall */
   display: grid;
-  grid-template-rows: 400px auto auto; /* card area, awards, stats */
+  grid-template-rows: 400px auto 1fr; /* card area, awards, stats fill remainder */
   align-items: start;
   justify-items: center;
   overflow-y: auto;
   padding: 12px;
   min-height: 0;
-  height: auto;
+  height: calc(450px + 360px); /* match beeswarm + timeline */
+  box-sizing: border-box; /* include padding in fixed height */
 }
 
 /* Player Card Styles */
@@ -299,8 +300,8 @@ a:hover { text-decoration: underline; }
   justify-content: center;
   align-items: center;
   gap: 8px;
-  /* Keep modest spacing so hovers don't collide with the card */
-  margin: 14px auto 8px auto;
+  /* Push awards further down from the card so upward tooltips have space */
+  margin: clamp(32px, 3vw, 48px) auto 0 auto;
   padding: 0;
   width: 90%;
   max-width: 400px;
@@ -370,10 +371,10 @@ a:hover { text-decoration: underline; }
 .award-badge::after {
   content: attr(data-award-tooltip);
   position: absolute;
-  /* Place tooltip below the badge to avoid overlapping the card area */
-  top: 100%;
+  /* Place tooltip above the badge (hover goes up) */
+  bottom: 100%;
   left: 50%;
-  transform: translateX(-50%) translateY(6px);
+  transform: translateX(-50%) translateY(-8px);
   background: #552583;
   color: #FDB927;
   padding: 6px 10px;
@@ -391,12 +392,12 @@ a:hover { text-decoration: underline; }
 
 .award-badge:hover::after {
   opacity: 1;
-  transform: translateX(-50%) translateY(8px);
+  transform: translateX(-50%) translateY(-12px);
 }
 
 #player-stats-section {
-  /* Compact, avoids overgrowing. Keep close to awards, but leave room for tooltip below badges */
-  margin: clamp(6px, 0.8vw, 12px) auto 20px auto;
+  /* Bring much closer to awards - tooltips now go up, so safe to tighten gap */
+  margin: 0 auto 20px auto;
   padding: clamp(6px, 1vw, 10px);
   width: 100%;
   max-width: clamp(420px, 48vw, 560px);
