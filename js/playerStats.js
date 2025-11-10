@@ -225,7 +225,7 @@ function renderPlayerStats() {
       <div class="player-stats-header">
         <div class="games-played">
           <div class="games-played-label">Games Played: <span class="games-played-number">0 / ${totalGamesInRange || 82}</span> 
-            &nbsp;•&nbsp; MP: <span class="games-played-number">0 min</span>
+            &nbsp;•&nbsp; Minutes Played: <span class="games-played-number">0 min</span>
           </div>
         </div>
       </div>
@@ -268,7 +268,7 @@ function renderPlayerStats() {
     <div class="player-stats-header">
       <div class="games-played">
         <div class="games-played-label">Games Played: <span class="games-played-number">${displayText}</span> 
-          &nbsp;•&nbsp; MP: <span class="games-played-number">${totalMinText} min</span>
+          &nbsp;•&nbsp; Minutes Played: <span class="games-played-number">${totalMinText} min</span>
         </div>
       </div>
     </div>
