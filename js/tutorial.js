@@ -17,7 +17,7 @@ class Tutorial {
         position: 'bottom'
       },
       {
-        target: '#player-stats-section',
+        target: '#player-stats-section, #player-card-container',
         title: 'Player Statistics',
         message: "This section shows the specific player's averaged statistics performance across the number of games played in the selected date range.",
         position: 'left'
@@ -106,7 +106,15 @@ class Tutorial {
 
     const step = this.steps[stepIndex];
     console.log('Tutorial: Step data:', step);
-    const targetElement = document.querySelector(step.target);
+    
+    // Handle multiple targets (comma-separated selectors)
+    const targets = step.target.split(',').map(t => t.trim());
+    let targetElement = null;
+    
+    for (const selector of targets) {
+      targetElement = document.querySelector(selector);
+      if (targetElement) break;
+    }
     
     if (!targetElement) {
       console.warn(`Tutorial target not found: ${step.target}`);
@@ -147,8 +155,92 @@ class Tutorial {
     }
 
     console.log('Tutorial: Calling highlightElement...');
-    // Highlight the target element
-    this.highlightElement(targetElement, step.position);
+    // Highlight the target element(s)
+    this.highlightMultipleElements(targets, step.position);
+  }
+
+  highlightMultipleElements(selectors, position = 'bottom') {
+    console.log('Tutorial: highlightMultipleElements() called with selectors:', selectors);
+    const highlight = document.getElementById('tutorial-highlight');
+    const tooltip = document.getElementById('tutorial-tooltip');
+    
+    if (!highlight || !tooltip) {
+      console.error('Tutorial: highlight or tooltip element not found!');
+      return;
+    }
+    
+    // Get all matching elements
+    const elements = selectors
+      .map(selector => document.querySelector(selector))
+      .filter(el => el !== null);
+    
+    if (elements.length === 0) {
+      console.warn('Tutorial: No elements found for selectors:', selectors);
+      return;
+    }
+    
+    console.log('Tutorial: Found', elements.length, 'elements to highlight');
+    
+    // Calculate bounding box that encompasses all elements
+    let minTop = Infinity, minLeft = Infinity;
+    let maxBottom = -Infinity, maxRight = -Infinity;
+    
+    elements.forEach(element => {
+      const rect = element.getBoundingClientRect();
+      minTop = Math.min(minTop, rect.top);
+      minLeft = Math.min(minLeft, rect.left);
+      maxBottom = Math.max(maxBottom, rect.bottom);
+      maxRight = Math.max(maxRight, rect.right);
+    });
+    
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+    
+    // Scroll to center of combined area
+    const centerY = (minTop + maxBottom) / 2;
+    window.scrollTo({
+      top: centerY + scrollTop - window.innerHeight / 2,
+      behavior: 'smooth'
+    });
+    
+    setTimeout(() => {
+      // Recalculate after scroll
+      minTop = Infinity; minLeft = Infinity;
+      maxBottom = -Infinity; maxRight = -Infinity;
+      
+      elements.forEach(element => {
+        const rect = element.getBoundingClientRect();
+        minTop = Math.min(minTop, rect.top);
+        minLeft = Math.min(minLeft, rect.left);
+        maxBottom = Math.max(maxBottom, rect.bottom);
+        maxRight = Math.max(maxRight, rect.right);
+      });
+      
+      const padding = 10;
+      const combinedRect = {
+        top: minTop,
+        left: minLeft,
+        bottom: maxBottom,
+        right: maxRight,
+        width: maxRight - minLeft,
+        height: maxBottom - minTop
+      };
+      
+      // Position and size the highlight box to cover all elements
+      highlight.style.top = `${combinedRect.top + scrollTop - padding}px`;
+      highlight.style.left = `${combinedRect.left + scrollLeft - padding}px`;
+      highlight.style.width = `${combinedRect.width + padding * 2}px`;
+      highlight.style.height = `${combinedRect.height + padding * 2}px`;
+      highlight.style.opacity = '1';
+      highlight.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+      highlight.style.boxShadow = '0 0 0 9999px rgba(0, 0, 0, 0.5), 0 0 40px rgba(253, 185, 39, 0.8), inset 0 0 50px rgba(255, 255, 255, 0.1)';
+      highlight.style.pointerEvents = 'none';
+      
+      console.log('Tutorial: Combined highlight positioned');
+      
+      // Position the tooltip relative to the combined area
+      this.positionTooltip(tooltip, combinedRect, position, scrollTop, scrollLeft);
+    }, 300);
   }
 
   highlightElement(element, position = 'bottom') {
