@@ -23,7 +23,7 @@ class Tutorial {
         position: 'left'
       },
       {
-        target: '.kpis',
+        target: '.kpis, #key-insights',
         title: 'Key Performance Indicators',
         message: 'This section shows the key performance upon filtering "Home", "Away", or against a specific team.',
         position: 'bottom'
